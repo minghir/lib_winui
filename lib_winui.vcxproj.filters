@@ -1,0 +1,728 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Resource Files">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="mupdf">
+      <UniqueIdentifier>{be420e5a-035b-446a-b79a-f73c7c968715}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ui">
+      <UniqueIdentifier>{627970f2-f7ca-4eb5-a599-e65b00c20105}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="sql">
+      <UniqueIdentifier>{ff560f93-b598-4eb6-ad2c-33f60f6470a4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="tdocs">
+      <UniqueIdentifier>{c3a62a10-8b0a-484f-993d-62f4716814e2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="wrapper">
+      <UniqueIdentifier>{0ac79bae-2e9c-4ad8-a3d6-01ee46b59a7f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ui\Layouts">
+      <UniqueIdentifier>{29b0038c-46cf-4a83-b9f8-19cfab17b53d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="vdb_engine">
+      <UniqueIdentifier>{7c5725d0-b1b6-4ee8-bd86-f82b68b76696}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="shell">
+      <UniqueIdentifier>{93ba4433-617a-45fa-8971-54aadc7526df}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="math">
+      <UniqueIdentifier>{464d3a5d-0a4a-4305-8ea8-8c1b1591c18d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="network">
+      <UniqueIdentifier>{91fa19d6-6eea-49e3-8241-bcec5ead550e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ui\Lexer">
+      <UniqueIdentifier>{c36bf128-fcdb-4ed4-9f63-8f3497de7b73}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\mupdf\pdfapp.h">
+      <Filter>mupdf</Filter>
+    </ClInclude>
+    <ClInclude Include="src\mupdf\win_main.h">
+      <Filter>mupdf</Filter>
+    </ClInclude>
+    <ClInclude Include="src\mupdf\win_diag.h">
+      <Filter>mupdf</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\vApp.hpp">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\vWindow.hpp">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\WindowManager.hpp">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\ConsoleManager.hpp">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\vControl.hpp">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\vPanel.hpp">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\vButton.hpp">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\EventDispatcher.hpp">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\ControlIdManager.hpp">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\vContainer.hpp">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\FontManager.hpp">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\vComboBox.hpp">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\vLabel.hpp">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\vEdit.hpp">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\vGrid.hpp">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\vDbGrid.hpp">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\vDbApp.hpp">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\vDbComboBox.hpp">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\IconManager.hpp">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\vMenu.hpp">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\vDbFilteredGrid.hpp">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\vStatusBar.hpp">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\TooltipManager.hpp">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\sql\SqlQueryAnalyzer.hpp">
+      <Filter>sql</Filter>
+    </ClInclude>
+    <ClInclude Include="src\sql\SqlQueryBuilder.hpp">
+      <Filter>sql</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\ILayoutStrategy.hpp">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\tdocs\xhtml.hpp">
+      <Filter>tdocs</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\vCodeView.hpp">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\tdocs\css.hpp">
+      <Filter>tdocs</Filter>
+    </ClInclude>
+    <ClInclude Include="src\tdocs\XhtmlToPdfConverter.hpp">
+      <Filter>tdocs</Filter>
+    </ClInclude>
+    <ClInclude Include="src\tdocs\RenderingContex.hpp">
+      <Filter>tdocs</Filter>
+    </ClInclude>
+    <ClInclude Include="src\tdocs\style.hpp">
+      <Filter>tdocs</Filter>
+    </ClInclude>
+    <ClInclude Include="src\tdocs\page.hpp">
+      <Filter>tdocs</Filter>
+    </ClInclude>
+    <ClInclude Include="src\tdocs\PdfConverter.hpp">
+      <Filter>tdocs</Filter>
+    </ClInclude>
+    <ClInclude Include="src\tdocs\ConvertUtils.hpp">
+      <Filter>tdocs</Filter>
+    </ClInclude>
+    <ClInclude Include="src\tdocs\ContextGuard.hpp">
+      <Filter>tdocs</Filter>
+    </ClInclude>
+    <ClInclude Include="src\tdocs\rtf.hpp">
+      <Filter>tdocs</Filter>
+    </ClInclude>
+    <ClInclude Include="src\tdocs\RTFtoPDFConverter.hpp">
+      <Filter>tdocs</Filter>
+    </ClInclude>
+    <ClInclude Include="src\tdocs\BasePdfConverter.hpp">
+      <Filter>tdocs</Filter>
+    </ClInclude>
+    <ClInclude Include="src\wrapper\PdfWriterWrapper.hpp">
+      <Filter>wrapper</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\vSpacer.hpp">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\Layouts\AnchorLayout.hpp">
+      <Filter>ui\Layouts</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\Layouts\FlowLayout.hpp">
+      <Filter>ui\Layouts</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\Layouts\VerticalStackLayout.hpp">
+      <Filter>ui\Layouts</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\Layouts\Layouts.hpp">
+      <Filter>ui\Layouts</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\Layouts\GridLayout.hpp">
+      <Filter>ui\Layouts</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\vDbSortableGrid.hpp">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\Layouts\FlexStackLayout.hpp">
+      <Filter>ui\Layouts</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\vPopupMenu.hpp">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\vDbFormPanel.hpp">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\vWaitCursor.hpp">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\vDbEditDialog.hpp">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\vMessageDialog.hpp">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\vDbAutoEditDialog.hpp">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\sql\SqlQueryParser.hpp">
+      <Filter>sql</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\vTabControl.hpp">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\vCheckBox.hpp">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\vGroupBox.hpp">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\vRadioButton.hpp">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\vDatePicker.hpp">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\vSeparator.hpp">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\csvConnection.hpp">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\dataSource.hpp">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\dbConnection.hpp">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\dbfConnection.hpp">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\fileUtils.hpp">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\globals.hpp">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\multiReport.hpp">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\odbcConnection.hpp">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\pdfDocument.hpp">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\reportDocument.hpp">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\reportFunction.hpp">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\reportHandler.hpp">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\reportRow.hpp">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\reportTemplate.hpp">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\reportVar.hpp">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\rtfDocument.hpp">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\stringUtils.hpp">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\txtDocument.hpp">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\xhtmlDocument.hpp">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\vdb_engine\vDatabase.hpp">
+      <Filter>vdb_engine</Filter>
+    </ClInclude>
+    <ClInclude Include="src\vdb_engine\vSchema.hpp">
+      <Filter>vdb_engine</Filter>
+    </ClInclude>
+    <ClInclude Include="src\vdb_engine\vTable.hpp">
+      <Filter>vdb_engine</Filter>
+    </ClInclude>
+    <ClInclude Include="src\vdb_engine\vEngine.hpp">
+      <Filter>vdb_engine</Filter>
+    </ClInclude>
+    <ClInclude Include="src\vdb_engine\vDataLoader.hpp">
+      <Filter>vdb_engine</Filter>
+    </ClInclude>
+    <ClInclude Include="src\vdb_engine\IQueryProvider.hpp">
+      <Filter>vdb_engine</Filter>
+    </ClInclude>
+    <ClInclude Include="src\vdb_engine\vLocalQueryProvider.hpp">
+      <Filter>vdb_engine</Filter>
+    </ClInclude>
+    <ClInclude Include="src\vdb_engine\vSocketQueryProvider.hpp">
+      <Filter>vdb_engine</Filter>
+    </ClInclude>
+    <ClInclude Include="src\vdb_engine\vSqlShell.hpp">
+      <Filter>vdb_engine</Filter>
+    </ClInclude>
+    <ClInclude Include="src\vdb_engine\vDataExporter.hpp">
+      <Filter>vdb_engine</Filter>
+    </ClInclude>
+    <ClInclude Include="src\vdb_engine\vStorageManager.hpp">
+      <Filter>vdb_engine</Filter>
+    </ClInclude>
+    <ClInclude Include="src\vdb_engine\vShellCommandParser.hpp">
+      <Filter>vdb_engine</Filter>
+    </ClInclude>
+    <ClInclude Include="src\vdb_engine\SqlKeyWords.hpp">
+      <Filter>vdb_engine</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ConfigLoader.hpp">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\sql\SqlQueryEngine.hpp">
+      <Filter>sql</Filter>
+    </ClInclude>
+    <ClInclude Include="src\shell\IShellEngine.hpp">
+      <Filter>shell</Filter>
+    </ClInclude>
+    <ClInclude Include="src\math\vmath.hpp">
+      <Filter>math</Filter>
+    </ClInclude>
+    <ClInclude Include="src\shell\vKeyWords.hpp">
+      <Filter>shell</Filter>
+    </ClInclude>
+    <ClInclude Include="src\shell\vShellCommandParser.hpp">
+      <Filter>shell</Filter>
+    </ClInclude>
+    <ClInclude Include="src\shell\vShellEngine.hpp">
+      <Filter>shell</Filter>
+    </ClInclude>
+    <ClInclude Include="src\shell\vShell.hpp">
+      <Filter>shell</Filter>
+    </ClInclude>
+    <ClInclude Include="src\wrapper\vCurlClient.hpp">
+      <Filter>wrapper</Filter>
+    </ClInclude>
+    <ClInclude Include="src\shell\vDummyEngine.hpp">
+      <Filter>shell</Filter>
+    </ClInclude>
+    <ClInclude Include="src\shell\vSqlShellEngine.hpp">
+      <Filter>shell</Filter>
+    </ClInclude>
+    <ClInclude Include="src\network\vNetworkServer.hpp">
+      <Filter>network</Filter>
+    </ClInclude>
+    <ClInclude Include="src\qdbfConnection.hpp">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\vCanvas.hpp">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\vWinConsole.hpp">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\vCommandDialog.hpp">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\dateUtils.hpp">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\vSaveFileDialog.hpp">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\Layouts\FormLayout.hpp">
+      <Filter>ui\Layouts</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\vDbXmlEditDialog.hpp">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\vXmlDialog.hpp">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\vPanelGroup.hpp">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\vRadioGroup.hpp">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\vXmlDbDialog.hpp">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\vDbGridPicker.hpp">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\Layouts\XmlDlgAnchorLayout.hpp">
+      <Filter>ui\Layouts</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\Layouts\HorizontalPercentStackLayout.hpp">
+      <Filter>ui\Layouts</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\Layouts\VerticalPercentStackLayout.hpp">
+      <Filter>ui\Layouts</Filter>
+    </ClInclude>
+    <ClInclude Include="src\XmlCache.hpp">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\dbUtils.hpp">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\reportUtils.hpp">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\vRichEdit.hpp">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\Lexer\CodeLexer.hpp">
+      <Filter>ui\Lexer</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\dataSource.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\dbConnection.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\fileUtils.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\globals.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\multiReport.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\reportDocument.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\reportFunction.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\reportHandler.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\reportRow.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\reportTemplate.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\reportVar.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\rtfDocument.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\stringUtils.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\txtDocument.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\mupdf\pdfapp.c">
+      <Filter>mupdf</Filter>
+    </ClCompile>
+    <ClCompile Include="src\mupdf\win_main.c">
+      <Filter>mupdf</Filter>
+    </ClCompile>
+    <ClCompile Include="src\mupdf\win_diag.cpp">
+      <Filter>mupdf</Filter>
+    </ClCompile>
+    <ClCompile Include="src\csvConnection.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\odbcConnection.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ui\vApp.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ui\vWindow.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ui\WindowManager.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ui\ConsoleManager.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ui\vControl.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ui\vPanel.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ui\vButton.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ui\EventDispatcher.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ui\ControlIdManager.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ui\vContainer.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ui\FontManager.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ui\vComboBox.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ui\vLabel.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ui\vEdit.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ui\vGrid.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ui\vDbGrid.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ui\vDbApp.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ui\vDbComboBox.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ui\IconManager.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ui\vMenu.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ui\vDbFilteredGrid.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ui\vStatusBar.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ui\TooltipManager.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\pdfDocument.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\sql\SqlQueryAnalyzer.cpp">
+      <Filter>sql</Filter>
+    </ClCompile>
+    <ClCompile Include="src\xhtmlDocument.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\tdocs\xhtml.cpp">
+      <Filter>tdocs</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ui\vCodeView.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\tdocs\css.cpp">
+      <Filter>tdocs</Filter>
+    </ClCompile>
+    <ClCompile Include="src\tdocs\XhtmlToPdfConverter.cpp">
+      <Filter>tdocs</Filter>
+    </ClCompile>
+    <ClCompile Include="src\tdocs\style.cpp">
+      <Filter>tdocs</Filter>
+    </ClCompile>
+    <ClCompile Include="src\tdocs\page.cpp">
+      <Filter>tdocs</Filter>
+    </ClCompile>
+    <ClCompile Include="src\tdocs\PdfConverter.cpp">
+      <Filter>tdocs</Filter>
+    </ClCompile>
+    <ClCompile Include="src\tdocs\RenderingContex.cpp">
+      <Filter>tdocs</Filter>
+    </ClCompile>
+    <ClCompile Include="src\tdocs\ConvertUtils.cpp">
+      <Filter>tdocs</Filter>
+    </ClCompile>
+    <ClCompile Include="src\tdocs\PdfConverterApplayCss.cpp">
+      <Filter>tdocs</Filter>
+    </ClCompile>
+    <ClCompile Include="src\tdocs\rtf.cpp">
+      <Filter>tdocs</Filter>
+    </ClCompile>
+    <ClCompile Include="src\tdocs\RTFtoPDFConverter.cpp">
+      <Filter>tdocs</Filter>
+    </ClCompile>
+    <ClCompile Include="src\wrapper\PdfWriterWrapper.cpp">
+      <Filter>wrapper</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\thirdparty\pugixml-1.15\src\pugixml.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ui\vSpacer.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ui\vDbSortableGrid.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ui\vDbFormPanel.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ui\vDbEditDialog.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ui\vMessageDialog.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ui\vDbAutoEditDialog.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\sql\SqlQueryParser.cpp">
+      <Filter>sql</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ui\vTabControl.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ui\vCheckBox.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ui\vGroupBox.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ui\vRadioButton.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ui\vDatePicker.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ui\vSeparator.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\dbfConnection.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\vdb_engine\vDataLoader.cpp">
+      <Filter>vdb_engine</Filter>
+    </ClCompile>
+    <ClCompile Include="src\vdb_engine\vSqlShell.cpp">
+      <Filter>vdb_engine</Filter>
+    </ClCompile>
+    <ClCompile Include="src\sql\SqlQueryEngine.cpp">
+      <Filter>sql</Filter>
+    </ClCompile>
+    <ClCompile Include="src\math\vmath.cpp">
+      <Filter>math</Filter>
+    </ClCompile>
+    <ClCompile Include="src\shell\CommandsHandlers.cpp">
+      <Filter>shell</Filter>
+    </ClCompile>
+    <ClCompile Include="src\shell\FunctionsHandlers.cpp">
+      <Filter>shell</Filter>
+    </ClCompile>
+    <ClCompile Include="src\shell\vShellEngine.cpp">
+      <Filter>shell</Filter>
+    </ClCompile>
+    <ClCompile Include="src\shell\vShell.cpp">
+      <Filter>shell</Filter>
+    </ClCompile>
+    <ClCompile Include="src\wrapper\vCurlClient.cpp">
+      <Filter>wrapper</Filter>
+    </ClCompile>
+    <ClCompile Include="src\shell\vSqlShellEngine.cpp">
+      <Filter>shell</Filter>
+    </ClCompile>
+    <ClCompile Include="src\network\vNetworkServer.cpp">
+      <Filter>network</Filter>
+    </ClCompile>
+    <ClCompile Include="src\qdbfConnection.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ui\vCanvas.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ui\vWinConsole.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\dateUtils.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ui\vDbXmlEditDialog.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ui\vXmlDialog.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ui\vPanelGroup.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ui\vXmlDbDialog.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ui\vDbGridPicker.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\dbUtils.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\reportUtils.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ui\vRichEdit.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ui\Lexer\CodeLexer.cpp">
+      <Filter>ui\Lexer</Filter>
+    </ClCompile>
+  </ItemGroup>
+</Project>

@@ -1,0 +1,388 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\ConfigLoader.hpp" />
+    <ClInclude Include="src\csvConnection.hpp" />
+    <ClInclude Include="src\dataSource.hpp" />
+    <ClInclude Include="src\dateUtils.hpp" />
+    <ClInclude Include="src\dbConnection.hpp" />
+    <ClInclude Include="src\dbfConnection.hpp" />
+    <ClInclude Include="src\dbUtils.hpp" />
+    <ClInclude Include="src\fileUtils.hpp" />
+    <ClInclude Include="src\globals.hpp" />
+    <ClInclude Include="src\math\vmath.hpp" />
+    <ClInclude Include="src\multiReport.hpp" />
+    <ClInclude Include="src\mupdf\pdfapp.h" />
+    <ClInclude Include="src\mupdf\win_diag.h" />
+    <ClInclude Include="src\mupdf\win_main.h" />
+    <ClInclude Include="src\network\vNetworkServer.hpp" />
+    <ClInclude Include="src\odbcConnection.hpp" />
+    <ClInclude Include="src\pdfDocument.hpp" />
+    <ClInclude Include="src\qdbfConnection.hpp" />
+    <ClInclude Include="src\reportDocument.hpp" />
+    <ClInclude Include="src\reportFunction.hpp" />
+    <ClInclude Include="src\reportHandler.hpp" />
+    <ClInclude Include="src\reportRow.hpp" />
+    <ClInclude Include="src\reportTemplate.hpp" />
+    <ClInclude Include="src\reportUtils.hpp" />
+    <ClInclude Include="src\reportVar.hpp" />
+    <ClInclude Include="src\rtfDocument.hpp" />
+    <ClInclude Include="src\shell\IShellEngine.hpp" />
+    <ClInclude Include="src\shell\vDummyEngine.hpp" />
+    <ClInclude Include="src\shell\vKeyWords.hpp" />
+    <ClInclude Include="src\shell\vShell.hpp" />
+    <ClInclude Include="src\shell\vShellCommandParser.hpp" />
+    <ClInclude Include="src\shell\vShellEngine.hpp" />
+    <ClInclude Include="src\shell\vSqlShellEngine.hpp" />
+    <ClInclude Include="src\sql\SqlQueryAnalyzer.hpp" />
+    <ClInclude Include="src\sql\SqlQueryBuilder.hpp" />
+    <ClInclude Include="src\sql\SqlQueryEngine.hpp" />
+    <ClInclude Include="src\sql\SqlQueryParser.hpp" />
+    <ClInclude Include="src\stringUtils.hpp" />
+    <ClInclude Include="src\tdocs\BasePdfConverter.hpp" />
+    <ClInclude Include="src\tdocs\ContextGuard.hpp" />
+    <ClInclude Include="src\tdocs\ConvertUtils.hpp" />
+    <ClInclude Include="src\tdocs\css.hpp" />
+    <ClInclude Include="src\tdocs\page.hpp" />
+    <ClInclude Include="src\tdocs\PdfConverter.hpp" />
+    <ClInclude Include="src\tdocs\RenderingContex.hpp" />
+    <ClInclude Include="src\tdocs\rtf.hpp" />
+    <ClInclude Include="src\tdocs\RTFtoPDFConverter.hpp" />
+    <ClInclude Include="src\tdocs\style.hpp" />
+    <ClInclude Include="src\tdocs\xhtml.hpp" />
+    <ClInclude Include="src\tdocs\XhtmlToPdfConverter.hpp" />
+    <ClInclude Include="src\txtDocument.hpp" />
+    <ClInclude Include="src\ui\ConsoleManager.hpp" />
+    <ClInclude Include="src\ui\ControlIdManager.hpp" />
+    <ClInclude Include="src\ui\EventDispatcher.hpp" />
+    <ClInclude Include="src\ui\FontManager.hpp" />
+    <ClInclude Include="src\ui\IconManager.hpp" />
+    <ClInclude Include="src\ui\ILayoutStrategy.hpp" />
+    <ClInclude Include="src\ui\Layouts\AnchorLayout.hpp" />
+    <ClInclude Include="src\ui\Layouts\FlexStackLayout.hpp" />
+    <ClInclude Include="src\ui\Layouts\FlowLayout.hpp" />
+    <ClInclude Include="src\ui\Layouts\FormLayout.hpp" />
+    <ClInclude Include="src\ui\Layouts\GridLayout.hpp" />
+    <ClInclude Include="src\ui\Layouts\HorizontalPercentStackLayout.hpp" />
+    <ClInclude Include="src\ui\Layouts\Layouts.hpp" />
+    <ClInclude Include="src\ui\Layouts\VerticalPercentStackLayout.hpp" />
+    <ClInclude Include="src\ui\Layouts\VerticalStackLayout.hpp" />
+    <ClInclude Include="src\ui\Layouts\XmlDlgAnchorLayout.hpp" />
+    <ClInclude Include="src\ui\Lexer\CodeLexer.hpp" />
+    <ClInclude Include="src\ui\TooltipManager.hpp" />
+    <ClInclude Include="src\ui\vApp.hpp" />
+    <ClInclude Include="src\ui\vButton.hpp" />
+    <ClInclude Include="src\ui\vCanvas.hpp" />
+    <ClInclude Include="src\ui\vCheckBox.hpp" />
+    <ClInclude Include="src\ui\vCodeView.hpp" />
+    <ClInclude Include="src\ui\vComboBox.hpp" />
+    <ClInclude Include="src\ui\vCommandDialog.hpp" />
+    <ClInclude Include="src\ui\vContainer.hpp" />
+    <ClInclude Include="src\ui\vControl.hpp" />
+    <ClInclude Include="src\ui\vDatePicker.hpp" />
+    <ClInclude Include="src\ui\vDbApp.hpp" />
+    <ClInclude Include="src\ui\vDbAutoEditDialog.hpp" />
+    <ClInclude Include="src\ui\vDbComboBox.hpp" />
+    <ClInclude Include="src\ui\vDbEditDialog.hpp" />
+    <ClInclude Include="src\ui\vDbFilteredGrid.hpp" />
+    <ClInclude Include="src\ui\vDbFormPanel.hpp" />
+    <ClInclude Include="src\ui\vDbGrid.hpp" />
+    <ClInclude Include="src\ui\vDbGridPicker.hpp" />
+    <ClInclude Include="src\ui\vDbSortableGrid.hpp" />
+    <ClInclude Include="src\ui\vDbXmlEditDialog.hpp" />
+    <ClInclude Include="src\ui\vEdit.hpp" />
+    <ClInclude Include="src\ui\vGrid.hpp" />
+    <ClInclude Include="src\ui\vGroupBox.hpp" />
+    <ClInclude Include="src\ui\vLabel.hpp" />
+    <ClInclude Include="src\ui\vMenu.hpp" />
+    <ClInclude Include="src\ui\vMessageDialog.hpp" />
+    <ClInclude Include="src\ui\vPanel.hpp" />
+    <ClInclude Include="src\ui\vPanelGroup.hpp" />
+    <ClInclude Include="src\ui\vPopupMenu.hpp" />
+    <ClInclude Include="src\ui\vRadioButton.hpp" />
+    <ClInclude Include="src\ui\vRadioGroup.hpp" />
+    <ClInclude Include="src\ui\vRichEdit.hpp" />
+    <ClInclude Include="src\ui\vSaveFileDialog.hpp" />
+    <ClInclude Include="src\ui\vSeparator.hpp" />
+    <ClInclude Include="src\ui\vSpacer.hpp" />
+    <ClInclude Include="src\ui\vStatusBar.hpp" />
+    <ClInclude Include="src\ui\vTabControl.hpp" />
+    <ClInclude Include="src\ui\vWaitCursor.hpp" />
+    <ClInclude Include="src\ui\vWinConsole.hpp" />
+    <ClInclude Include="src\ui\vWindow.hpp" />
+    <ClInclude Include="src\ui\vXmlDbDialog.hpp" />
+    <ClInclude Include="src\ui\vXmlDialog.hpp" />
+    <ClInclude Include="src\ui\WindowManager.hpp" />
+    <ClInclude Include="src\vdb_engine\IQueryProvider.hpp" />
+    <ClInclude Include="src\vdb_engine\SqlKeyWords.hpp" />
+    <ClInclude Include="src\vdb_engine\vDatabase.hpp" />
+    <ClInclude Include="src\vdb_engine\vDataExporter.hpp" />
+    <ClInclude Include="src\vdb_engine\vDataLoader.hpp" />
+    <ClInclude Include="src\vdb_engine\vEngine.hpp" />
+    <ClInclude Include="src\vdb_engine\vLocalQueryProvider.hpp" />
+    <ClInclude Include="src\vdb_engine\vSchema.hpp" />
+    <ClInclude Include="src\vdb_engine\vShellCommandParser.hpp" />
+    <ClInclude Include="src\vdb_engine\vSocketQueryProvider.hpp" />
+    <ClInclude Include="src\vdb_engine\vSqlShell.hpp" />
+    <ClInclude Include="src\vdb_engine\vStorageManager.hpp" />
+    <ClInclude Include="src\vdb_engine\vTable.hpp" />
+    <ClInclude Include="src\wrapper\PdfWriterWrapper.hpp" />
+    <ClInclude Include="src\wrapper\vCurlClient.hpp" />
+    <ClInclude Include="src\xhtmlDocument.hpp" />
+    <ClInclude Include="src\XmlCache.hpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\thirdparty\pugixml-1.15\src\pugixml.cpp" />
+    <ClCompile Include="src\csvConnection.cpp" />
+    <ClCompile Include="src\dataSource.cpp" />
+    <ClCompile Include="src\dateUtils.cpp" />
+    <ClCompile Include="src\dbConnection.cpp" />
+    <ClCompile Include="src\dbfConnection.cpp" />
+    <ClCompile Include="src\dbUtils.cpp" />
+    <ClCompile Include="src\fileUtils.cpp" />
+    <ClCompile Include="src\globals.cpp" />
+    <ClCompile Include="src\math\vmath.cpp" />
+    <ClCompile Include="src\multiReport.cpp" />
+    <ClCompile Include="src\mupdf\pdfapp.c" />
+    <ClCompile Include="src\mupdf\win_diag.cpp" />
+    <ClCompile Include="src\mupdf\win_main.c" />
+    <ClCompile Include="src\network\vNetworkServer.cpp" />
+    <ClCompile Include="src\odbcConnection.cpp" />
+    <ClCompile Include="src\pdfDocument.cpp" />
+    <ClCompile Include="src\qdbfConnection.cpp" />
+    <ClCompile Include="src\reportDocument.cpp" />
+    <ClCompile Include="src\reportFunction.cpp" />
+    <ClCompile Include="src\reportHandler.cpp" />
+    <ClCompile Include="src\reportRow.cpp" />
+    <ClCompile Include="src\reportTemplate.cpp" />
+    <ClCompile Include="src\reportUtils.cpp" />
+    <ClCompile Include="src\reportVar.cpp" />
+    <ClCompile Include="src\rtfDocument.cpp" />
+    <ClCompile Include="src\shell\CommandsHandlers.cpp" />
+    <ClCompile Include="src\shell\FunctionsHandlers.cpp" />
+    <ClCompile Include="src\shell\vShell.cpp" />
+    <ClCompile Include="src\shell\vShellEngine.cpp" />
+    <ClCompile Include="src\shell\vSqlShellEngine.cpp" />
+    <ClCompile Include="src\sql\SqlQueryAnalyzer.cpp" />
+    <ClCompile Include="src\sql\SqlQueryEngine.cpp" />
+    <ClCompile Include="src\sql\SqlQueryParser.cpp" />
+    <ClCompile Include="src\stringUtils.cpp" />
+    <ClCompile Include="src\tdocs\ConvertUtils.cpp" />
+    <ClCompile Include="src\tdocs\css.cpp" />
+    <ClCompile Include="src\tdocs\page.cpp" />
+    <ClCompile Include="src\tdocs\PdfConverter.cpp" />
+    <ClCompile Include="src\tdocs\PdfConverterApplayCss.cpp" />
+    <ClCompile Include="src\tdocs\RenderingContex.cpp" />
+    <ClCompile Include="src\tdocs\rtf.cpp" />
+    <ClCompile Include="src\tdocs\RTFtoPDFConverter.cpp" />
+    <ClCompile Include="src\tdocs\style.cpp" />
+    <ClCompile Include="src\tdocs\xhtml.cpp" />
+    <ClCompile Include="src\tdocs\XhtmlToPdfConverter.cpp" />
+    <ClCompile Include="src\txtDocument.cpp" />
+    <ClCompile Include="src\ui\ConsoleManager.cpp" />
+    <ClCompile Include="src\ui\ControlIdManager.cpp" />
+    <ClCompile Include="src\ui\EventDispatcher.cpp" />
+    <ClCompile Include="src\ui\FontManager.cpp" />
+    <ClCompile Include="src\ui\IconManager.cpp" />
+    <ClCompile Include="src\ui\Lexer\CodeLexer.cpp" />
+    <ClCompile Include="src\ui\TooltipManager.cpp" />
+    <ClCompile Include="src\ui\vApp.cpp" />
+    <ClCompile Include="src\ui\vButton.cpp" />
+    <ClCompile Include="src\ui\vCanvas.cpp" />
+    <ClCompile Include="src\ui\vCheckBox.cpp" />
+    <ClCompile Include="src\ui\vCodeView.cpp" />
+    <ClCompile Include="src\ui\vComboBox.cpp" />
+    <ClCompile Include="src\ui\vContainer.cpp" />
+    <ClCompile Include="src\ui\vControl.cpp" />
+    <ClCompile Include="src\ui\vDatePicker.cpp" />
+    <ClCompile Include="src\ui\vDbApp.cpp" />
+    <ClCompile Include="src\ui\vDbAutoEditDialog.cpp" />
+    <ClCompile Include="src\ui\vDbComboBox.cpp" />
+    <ClCompile Include="src\ui\vDbEditDialog.cpp" />
+    <ClCompile Include="src\ui\vDbFilteredGrid.cpp" />
+    <ClCompile Include="src\ui\vDbFormPanel.cpp" />
+    <ClCompile Include="src\ui\vDbGrid.cpp" />
+    <ClCompile Include="src\ui\vDbGridPicker.cpp" />
+    <ClCompile Include="src\ui\vDbSortableGrid.cpp" />
+    <ClCompile Include="src\ui\vDbXmlEditDialog.cpp" />
+    <ClCompile Include="src\ui\vEdit.cpp" />
+    <ClCompile Include="src\ui\vGrid.cpp" />
+    <ClCompile Include="src\ui\vGroupBox.cpp" />
+    <ClCompile Include="src\ui\vLabel.cpp" />
+    <ClCompile Include="src\ui\vMenu.cpp" />
+    <ClCompile Include="src\ui\vMessageDialog.cpp" />
+    <ClCompile Include="src\ui\vPanel.cpp" />
+    <ClCompile Include="src\ui\vPanelGroup.cpp" />
+    <ClCompile Include="src\ui\vRadioButton.cpp" />
+    <ClCompile Include="src\ui\vRichEdit.cpp" />
+    <ClCompile Include="src\ui\vSeparator.cpp" />
+    <ClCompile Include="src\ui\vSpacer.cpp" />
+    <ClCompile Include="src\ui\vStatusBar.cpp" />
+    <ClCompile Include="src\ui\vTabControl.cpp" />
+    <ClCompile Include="src\ui\vWinConsole.cpp" />
+    <ClCompile Include="src\ui\vWindow.cpp" />
+    <ClCompile Include="src\ui\vXmlDbDialog.cpp" />
+    <ClCompile Include="src\ui\vXmlDialog.cpp" />
+    <ClCompile Include="src\ui\WindowManager.cpp" />
+    <ClCompile Include="src\vdb_engine\vDataLoader.cpp" />
+    <ClCompile Include="src\vdb_engine\vSqlShell.cpp" />
+    <ClCompile Include="src\wrapper\PdfWriterWrapper.cpp" />
+    <ClCompile Include="src\wrapper\vCurlClient.cpp" />
+    <ClCompile Include="src\xhtmlDocument.cpp" />
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>16.0</VCProjectVersion>
+    <Keyword>Win32Proj</Keyword>
+    <ProjectGuid>{2517c39d-2db1-4d05-a1ca-603184a5d489}</ProjectGuid>
+    <RootNamespace>libvreport</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v142</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v142</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v142</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v142</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="Shared">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <LinkIncremental>true</LinkIncremental>
+    <TargetName>libvreport</TargetName>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <LinkIncremental>false</LinkIncremental>
+    <TargetName>libvreport</TargetName>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <LinkIncremental>true</LinkIncremental>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <LinkIncremental>false</LinkIncremental>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <AdditionalIncludeDirectories>D:\Programming\vreport\thirdparty\mupdf\include;D:\Programming\vreport\thirdparty\pugixml-1.15\src;</AdditionalIncludeDirectories>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalLibraryDirectories>D:\Programming\vreport\thirdparty\mupdf\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>libmupdf.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <AdditionalIncludeDirectories>..\..\thirdparty\curl-8.11.1\builds\libcurl-vc-x86-release-static-ipv6-sspi-schannel\include;..\..\thirdparty\PDF-Writer\FreeType\include;..\..\thirdparty\PDF-Writer\PDFWriter;..\..\thirdparty\mupdf\include;..\..\thirdparty\pugixml-1.15\src;..\..\thirdparty\curl-8.11.1\builds\libcurl-vc-x86-release-dll-ipv6-sspi-schannel\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard_C>Default</LanguageStandard_C>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalLibraryDirectories>D:\Programming\vreport\thirdparty\mupdf\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>libmupdf.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>
