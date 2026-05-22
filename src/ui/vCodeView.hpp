@@ -10,23 +10,27 @@ private:
     // vLineGutter* m_lineGutter = nullptr; // Viitorul control pentru numere
 
     int m_fontSize = 12;
+    const int m_gutterWidth = 50;
+
+
+    void drawLineNumbers(HDC hdc);
 public:
     vCodeView(HINSTANCE hInstance, const std::string& id, int x, int y, int width, int height, EventDispatcher& dispatcher)
         : vPanel(hInstance, id, x, y, width, height, dispatcher)
     {
         // Nu uita: vPanel va fi părintele pentru RichEdit
     }
-
+    /*
     void create(HWND parent) {
         vPanel::create(parent);
-        setLayoutStrategy(std::make_unique<AnchorLayout>());
+        //setLayoutStrategy(std::make_unique<AnchorLayout>());
      
         // 1. Creăm RichEdit-ul ca fiu al acestui Panel
-        auto rich = std::make_unique<vRichEdit>(m_hInstance, m_id + "_edit", 0, 0, m_width, m_height, getEventDispatcher());
+        auto rich = std::make_unique<vRichEdit>(m_hInstance, m_id + "_edit", 50, 0, m_width, m_height, getEventDispatcher());
         m_richEdit = rich.get();
-        m_richEdit->setHeightMode(SizeMode::FILL);
-        m_richEdit->setWidthMode(SizeMode::FILL);
-        m_richEdit->setFontSize(12);
+        //m_richEdit->setHeightMode(SizeMode::FILL);
+        //m_richEdit->setWidthMode(SizeMode::FILL);
+        m_richEdit->setFontSize(m_fontSize);
         // Dacă adăugăm Gutter-ul mai târziu, aici vom ajusta X-ul și lățimea
         // rich->setX(40); 
         // rich->setWidth(m_width - 40);
@@ -40,7 +44,12 @@ public:
         }
         applyLayout();
     }
+    */
 
+    void create(HWND parent) override;
+
+
+    LRESULT handleMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) override;
     // Proxy methods: redirecționăm apelurile către m_richEdit-ul intern
     void setText(const std::wstring& text) { if (m_richEdit) m_richEdit->setText(text); }
     std::wstring getText() const { return m_richEdit ? m_richEdit->getText() : L""; }
@@ -51,5 +60,5 @@ public:
     void setReadOnly(bool readOnly);
 
     void setFontSize(int size);
-
+    void redrawGutter();
 };
