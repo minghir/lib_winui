@@ -1,0 +1,12 @@
+﻿################################################################################
+# This .gitignore file was automatically created by Microsoft(R) Visual Studio.
+################################################################################
+
+/.vs/lib_winui
+/Release
+/tests/qdbf_cli/Release
+/tests/RTF2PDF/Release
+/tests/vEngine/Release
+/x64/Debug
+/tests/wqdbf/Release
+/tests/uiTest/Release
