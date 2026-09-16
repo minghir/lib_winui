@@ -1,7 +1,8 @@
 ﻿#ifndef VXMLDIALOG_HPP
 #define VXMLDIALOG_HPP
 
-#include "D:\Programming\Aplicatii_C2019\ANC\thirdparty\pugixml-1.15\src\pugixml.hpp"
+//#include "D:\Programming\Aplicatii_C2019\ANC\thirdparty\pugixml-1.15\src\pugixml.hpp"
+#include "pugixml.hpp"
 
 #include "vWindow.hpp"
 #include "FontManager.hpp"
