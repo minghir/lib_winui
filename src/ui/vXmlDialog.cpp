@@ -12,6 +12,8 @@
 #include "vRadioGroup.hpp"
 #include "vDbGridPicker.hpp"
 #include "vDbComboBox.hpp"
+#include "vGrid.hpp"
+#include "vDbGrid.hpp"
 #include "vApp.hpp"
 #include "Layouts/Layouts.hpp"
 #include "../XmlCache.hpp"
@@ -340,6 +342,7 @@ void vXmlDialog::parseChildren(pugi::xml_node parentNode, vControl* parentCtrl) 
                 newCtrl = std::move(pgBox);
             }
             
+            
             else {
                 auto panel = std::make_unique<vPanel>(m_hInstance, id, 0, 0, 100, 100, m_dispatcher);
                 containerPtr = panel.get();
@@ -394,6 +397,12 @@ void vXmlDialog::parseChildren(pugi::xml_node parentNode, vControl* parentCtrl) 
         else if (type == "vDbComboBox") {
             // Adăugăm suport pentru butonul radio individual
             newCtrl = std::make_unique<vDbComboBox>(m_hInstance, id,  0, 0, 100, 25, m_dispatcher, nullptr);
+        }
+        else if (type == "vDbGrid") {
+            newCtrl = std::make_unique<vDbGrid>(m_hInstance, id, 0, 0, 200, 150, m_dispatcher, nullptr);
+        }
+        else if (type == "vGrid") {
+            newCtrl = std::make_unique<vGrid>(m_hInstance, id, 0, 0, 200, 150, m_dispatcher);
         }
         
 
@@ -489,6 +498,8 @@ void vXmlDialog::parseChildren(pugi::xml_node parentNode, vControl* parentCtrl) 
                 }
                 if (indexToSelect != -1) dbCombo->setSelectedIndex(indexToSelect);
             }
+
+           
            
             // Recursivitate pentru copiii containerului (inclusiv GroupBox)
             parseChildren(node, rawPtr);
@@ -747,6 +758,10 @@ void vXmlDialog::applySpecificAttribute(vControl* ctrl, const std::string& name,
         vDbComboBox* dbCombo = dynamic_cast<vDbComboBox*>(ctrl);
         if (dbCombo) {
             dbCombo->setTargetQuery(str_to_wstr(value));
+        }
+        vDbGrid* dbGrid = dynamic_cast<vDbGrid*>(ctrl);
+        if (dbGrid) {
+            dbGrid->setTargetQuery(str_to_wstr(value));
         }
     }
     else if (name == "returnColumn") {

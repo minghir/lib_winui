@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<vXmlDialog name="dialogUtilizatori" title="Editare utilizatori" WindowType="StandardWindow" LayoutStrategy="AnchorLayout" x="100" y="100" width="1024" height="768" minWidth="600" minHeight="400" font="test1" background="##0000ff">
+<font name="test2" faceName="Arial"  height="12" weight="normal" italic="false" underline="false" strikeout="false" />
+<font name="test1" faceName="Arial Narrow"  height="20" weight="normal" italic="false" underline="false" strikeout="false" />
+	<vContainer 
+		name="mainPanel" 
+		type="vPanel"
+		LayoutStrategy="AnchorLayout" 
+		widthMode="FILL" 
+		heightMode="FILL" 
+		anchor="LEFT-TOP" 
+		x="0" y="0" 
+		width="1024" height="768" 
+		tooltipText="" 
+		gridRow="0" gridColumn="0"  
+		marginLeft="0" marginTop="0" marginRight="0" marginBottom="0" 
+		background="#222222"
+		textColor="#000000"
+		font="test1">
+			<vControl 
+				name="labelNumePrenume" 
+				type="vLabel" 
+				widthMode="FIXED" 
+				heightMode="FIXED" 
+				anchor="LEFT-TOP" 
+				x="0" y="0" 
+				width="300" height="45"
+				gridRow="0" gridColumn="0"  
+				marginLeft="0" marginTop="0" marginRight="0" marginBottom="0" 
+				textColor="#ffffff"
+				font="test2">
+				<text>Nume prenume:</text>
+			</vControl>
+			<vControl 
+				name="editNumePrenume" 
+				type="vEdit" 
+				widthMode="FIXED" 
+				heightMode="FIXED" 
+				anchor="LEFT" 
+				x="0" y="0" 
+				width="100" height="30"
+				gridRow="0" gridColumn="0"  
+				background="#ffffff"
+				marginLeft="0" marginTop="0" marginRight="0" marginBottom="0" 
+				
+				font="test2">
+				<default_text>Nume prenume:</default_text>
+			</vControl>
+			<vContainer 
+				name="adresPanel" 
+				type="vPanel"
+				LayoutStrategy="AnchorLayout" 
+				widthMode="FILL" 
+				heightMode="FIXED" 
+				anchor="LEFT-TOP" 
+				x="100" y="100" 
+				width="100" height="200" 
+				tooltipText="" 
+				gridRow="0" gridColumn="0"  
+				marginLeft="0" marginTop="0" marginRight="0" marginBottom="0" 
+				background="#666666"
+				textColor="#ffffff"
+				font="test1">
+					<vControl 
+						name="labelAdresa" 
+						type="vLabel" 
+						widthMode="FIXED" 
+						heightMode="FIXED" 
+						anchor="LEFT-TOP" 
+						x="0" y="0" 
+						width="100" height="30"
+						gridRow="0" gridColumn="0"  
+						marginLeft="0" marginTop="0" marginRight="0" marginBottom="0" 
+						font="test2">
+						<text>Adresa:</text>
+					</vControl>
+					<vControl 
+						name="editAdresa" 
+						type="vEdit" 
+						widthMode="FIXED" 
+						heightMode="FIXED" 
+						anchor="LEFT-TOP" 
+						x="0" y="0" 
+						width="100" height="30"
+						gridRow="0" gridColumn="0"  
+						marginLeft="0" marginTop="0" marginRight="0" marginBottom="0" 
+						background="#ffffff"
+						font="test1">
+						<default_text>Adresa</default_text>
+					</vControl>
+			</vContainer>
+	</vContainer>
+</vXmlDialog>

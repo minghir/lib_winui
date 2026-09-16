@@ -11,7 +11,7 @@ FontManager& FontManager::getInstance() {
 FontManager::~FontManager() {
     cleanup(); // Asigură că toate fonturile sunt eliberate la distrugerea instanței
 }
-
+/*
 HFONT FontManager::getFont(const std::wstring& faceName, int height, int weight, bool italic, bool underline, bool strikeout) {
     FontKey key = { faceName, height, weight, italic, underline, strikeout };
 
@@ -50,25 +50,43 @@ HFONT FontManager::getFont(const std::wstring& faceName, int height, int weight,
 
     return hFont;
 }
-/*
-HFONT FontManager::getScaledFont(const std::wstring& name, int baseSize, int dpi) {
-    // 1. Calculăm înălțimea scalată (folosind MulDiv pentru precizie)
-    // Folosim -MulDiv pentru a potrivi mărimea caracterului, nu a celulei
-    int scaledHeight = -MulDiv(baseSize, dpi, 72);
+*/
 
-    // 2. Apelăm getFont. Aceasta va folosi structura FontKey,
-    // va verifica m_fontCache și va returna fontul (existent sau nou).
-    return getFont(name, scaledHeight, FW_NORMAL, false, false, false);
-}
-*/
-/*
-HFONT FontManager::getScaledFont(const std::wstring& name, int baseSize, int dpi,
-    int weight, bool italic, bool underline) {
-    int scaledHeight = -MulDiv(baseSize, dpi, 72);
-    // Acum transmitem parametrii primiți, nu unii ficși
-    return getFont(name, scaledHeight, weight, italic, underline, false);
-}
-*/
+// În FontManager.cpp
+HFONT FontManager::getFont(const std::wstring& faceName, int height, int weight, bool italic, bool underline, bool strikeout) {
+    FontKey key = { faceName, height, weight, italic, underline, strikeout };
+
+    auto it = m_fontCache.find(key);
+    if (it != m_fontCache.end()) {
+        return it->second;
+    }
+
+    HFONT hFont = CreateFontW(
+        height,
+        0,
+        0,
+        0,
+        weight,
+        italic,
+        underline,
+        strikeout,
+        DEFAULT_CHARSET,
+        OUT_DEFAULT_PRECIS,
+        CLIP_DEFAULT_PRECIS,
+        CLEARTYPE_QUALITY,
+        FF_DONTCARE | DEFAULT_PITCH, // <-- CORECTURĂ: Schimbă FIXED_PITCH în DEFAULT_PITCH
+        faceName.c_str()
+    );
+
+    if (hFont) {
+        m_fontCache[key] = hFont;
+    }
+    else {
+        LOG_ERROR(L"[ERROR] FontManager: Nu s-a putut crea fontul...");
+    }
+
+    return hFont;
+}   
 
 HFONT FontManager::getScaledFont(const std::wstring& name, int baseSize, int dpi,
     int weight, bool italic, bool underline) {
@@ -82,36 +100,6 @@ HFONT FontManager::getScaledFont(const std::wstring& name, int baseSize, int dpi
     return getFont(name, scaledHeight, weight, italic, underline, false);
 }
 
-/*
-HFONT FontManager::getScaledFont(const std::wstring& name, int baseSize, int dpi) {
-    // 1. Creăm o cheie unică pentru cache (Ex: "Arial_12_144")
-    std::wstring key = name + L"_" + std::to_wstring(baseSize) + L"_" + std::to_wstring(dpi);
-
-    // 2. Verificăm dacă am creat deja acest font
-    auto it = m_fontCache.find(key);
-    if (it != m_fontCache.end()) {
-        return it->second;
-    }
-
-    // 3. Dacă nu există, îl creăm
-    int scaledHeight = -MulDiv(baseSize, dpi, 72); // 72 pentru puncte (pt)
-
-    LOGFONT lf = {};
-    lf.lfHeight = scaledHeight;
-    lf.lfWeight = FW_NORMAL;
-    lf.lfCharSet = DEFAULT_CHARSET; // Recomandat pentru suport caractere speciale
-    wcscpy_s(lf.lfFaceName, LF_FACESIZE, name.c_str());
-
-    HFONT hFont = CreateFontIndirect(&lf);
-
-    // 4. Îl salvăm în cache pentru utilizări viitoare
-    if (hFont) {
-        m_fontCache[key] = hFont;
-    }
-
-    return hFont;
-}
-*/
 void FontManager::cleanup() {
    // ConsoleManager::getInstance().log(L"[FontManager] Curățare resurse fonturi...");
     for (auto const& [key, hFont] : m_fontCache) {

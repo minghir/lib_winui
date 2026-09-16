@@ -1,5 +1,6 @@
 #include "globals.hpp"
 #include "stringUtils.hpp"
+#include "ui/ConsoleManager.hpp"
 //#include <afxwin.h>
 std::map<std::string,reportTemplate> report_tpls;
 //std::map<std::string,std::wstring> global_vars;
@@ -34,7 +35,7 @@ reportTemplate* getTemplateByName(std::string tpl_name){
 //        std::cout<<"AM GASIT TEMPLATEUL:" << tpl_name << " SUCCES!!!" <<std::endl;
         return &(it->second);  // Returnează pointer către obiectul găsit
     }else{
-        std::cout << "TEMPLATEUL:" << tpl_name << " NU EXISTA!"<<std::endl;
+        LOG_ERROR( L"TEMPLATEUL:" + str_to_wstr(tpl_name) + L" NU EXISTA!");
     }
     return nullptr;
 }

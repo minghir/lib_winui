@@ -213,6 +213,26 @@ bool tdocsRTFtoPDF(const std::wstring& rtfFile, const std::wstring& pdfDir) {
 
 }
 
+bool tdocsRTFtoPDFMemory(const std::string& rtfContentInMemory, std::vector<uint8_t>& outPdfBuffer) {
+    Rtf rtfDoc;
+
+    // Pasul 1: Parsare RTF din RAM
+    if (!rtfDoc.loadFromString(rtfContentInMemory)) {
+        LOG_ERROR(L"[RTF2PDF] Pasul 1 ESUAT: Rtf::loadFromString nu a putut parsa string-ul RTF!");
+        return false;
+    }
+    LOG_SUCCESS(L"[RTF2PDF] Pasul 1 REUSIT: RTF parsat corect.");
+
+    // Pasul 2: Conversie si Randare PDF
+    RtfToPdfConverter converter(rtfDoc);
+    if (!converter.convertToMemory(outPdfBuffer)) {
+        LOG_ERROR(L"[RTF2PDF] Pasul 2 ESUAT: RtfToPdfConverter::convertToMemory a returnat false!");
+        return false;
+    }
+
+    LOG_SUCCESS(L"[RTF2PDF] Pasul 2 REUSIT: PDF generat! Dimensiune: " + std::to_wstring(outPdfBuffer.size()) + L" bytes.");
+    return true;
+}
 /*
 bool tdocsXHTMLtoPDF(const std::wstring& xhtmlFile, const std::wstring& pdfDir) {
 
@@ -349,7 +369,8 @@ void wconcat_pdfs(const std::vector<std::wstring>& input_files,
     const std::wstring& output_file)
 {
     startConsole();
-    // Context cu cache limitat (256 MB)
+
+    // 1. Inițializare context MuPDF cu cache de 256 MB
     fz_context* ctx = fz_new_context(nullptr, nullptr, 256 << 20);
     if (!ctx) {
         std::wcerr << L"Eroare la inițializarea contextului MuPDF\n";
@@ -363,54 +384,68 @@ void wconcat_pdfs(const std::vector<std::wstring>& input_files,
         fz_document_writer* writer =
             fz_new_document_writer(ctx, output_utf8.c_str(), "pdf", nullptr);
 
-        auto append_pdf = [&](const std::wstring& file) {
+        // Parcurgem fișierele de intrare
+        for (const auto& file : input_files) {
             std::string file_utf8 = wstring_to_utf8(file);
-            fz_document* doc = fz_open_document(ctx, file_utf8.c_str());
-            if (!doc) {
-                std::wcerr << L"Nu s-a putut deschide fișierul: " << file << L"\n";
-                return;
+
+            fz_document* doc = nullptr;
+            fz_try(ctx) {
+                doc = fz_open_document(ctx, file_utf8.c_str());
             }
+            fz_catch(ctx) {
+                std::wcerr << L"Nu s-a putut deschide fișierul PDF: " << file << L"\n";
+                doc = nullptr;
+            }
+
+            if (!doc) continue;
 
             int page_count = fz_count_pages(ctx, doc);
             for (int i = 0; i < page_count; ++i) {
-                fz_page* page = fz_load_page(ctx, doc, i);
+                fz_page* page = nullptr;
+                fz_try(ctx) {
+                    page = fz_load_page(ctx, doc, i);
+                }
+                fz_catch(ctx) {
+                    page = nullptr;
+                }
+
                 if (!page) {
-                    std::wcerr << L"Eroare: pagina " << i << L" nu a putut fi încărcată\n";
+                    std::wcerr << L"Eroare: pagina " << i << L" nu a putut fi încărcată din " << file << L"\n";
                     continue;
                 }
 
-
                 fz_rect mediabox = fz_bound_page(ctx, page);
 
+                // fz_begin_page alocă un device intern pentru 'writer'
                 fz_device* dev = fz_begin_page(ctx, writer, mediabox);
-                if (!dev) {
-                    std::wcerr << L"Nu s-a putut deschide fișierul: " << file << L"\n";
-                    return;
+                if (dev) {
+                    fz_run_page(ctx, page, dev, fz_identity, nullptr);
+
+                    // fz_end_page finalizează ȘI ELIBEREAZĂ automat 'dev'!
+                    fz_end_page(ctx, writer);
+                }
+                else {
+                    std::wcerr << L"Nu s-a putut inițializa pagina în writer pentru: " << file << L"\n";
                 }
 
-                fz_run_page(ctx, page, dev, fz_identity, nullptr);
-                fz_end_page(ctx, writer);
-
-                fz_drop_device(ctx, dev);   // 🔑 eliberăm device-ul
-                fz_drop_page(ctx, page);    // 🔑 eliberăm pagina
+                // Eliberăm doar pagina încărcată din documentul sursă
+                fz_drop_page(ctx, page);
             }
 
-            fz_drop_document(ctx, doc);     // 🔑 eliberăm documentul
-        };
-
-        // parcurgem vectorul de fișiere
-        for (const auto& file : input_files) {
-            append_pdf(file);
+            // Eliberăm documentul sursă în siguranță
+            fz_drop_document(ctx, doc);
         }
 
+        // Închidem și eliberăm writer-ul
         fz_close_document_writer(ctx, writer);
         fz_drop_document_writer(ctx, writer);
     }
     fz_catch(ctx) {
-        std::wcerr << L"Eroare în timpul procesării PDF-urilor\n";
+        std::wcerr << L"Eroare în timpul procesării PDF-urilor cu MuPDF\n";
     }
 
-    fz_drop_context(ctx); // 🔑 eliberăm contextul
+    // Eliberăm contextul
+    fz_drop_context(ctx);
 }
 
 inline std::string wide_to_utf8_win32(const std::wstring& w) {

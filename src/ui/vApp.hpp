@@ -80,6 +80,18 @@ public:
         return (it != m_globalVars.end()) ? it->second : L"";
     }
 
+
+    // Returnează calea folderului unde se află executabilul (cu '\' la final), ex: L"D:\\Programming\\ANC\\"
+    std::wstring getAppPath() const;
+
+    // Versiune std::string (ANSI / UTF-8) pentru getAppPath()
+    std::string getAppPathA() const;
+
+    // Returnează calea completă către o resursă/subfolder relativ la directorul aplicației
+    // Exemplu: getAppSubPath(L"reports/situatii_periodice/situatii_periodice.xml")
+    std::wstring getAppSubPath(const std::wstring& relativePath) const;
+    std::string getAppSubPathA(const std::string& relativePath) const;
+
 protected:
     // Gestionează proprietatea și ciclul de viață al obiectelor vWindow.
     EventDispatcher m_eventDispatcher;

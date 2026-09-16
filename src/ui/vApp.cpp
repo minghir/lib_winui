@@ -314,3 +314,50 @@ void vApp::removeWindow(const std::string& id) {
         LOG_DEBUG(L"[vApp] removeWindow: ID-ul '" + str_to_wstr(id) + L"' nu există, nimic de șters.");
     }
 }
+
+std::wstring vApp::getAppPath() const {
+    wchar_t buffer[MAX_PATH] = { 0 };
+    GetModuleFileNameW(m_instance, buffer, MAX_PATH);
+
+    std::wstring path(buffer);
+    size_t pos = path.find_last_of(L"\\/");
+    if (pos != std::wstring::npos) {
+        return path.substr(0, pos + 1); // Include separatorul final (\)
+    }
+    return L"";
+}
+
+std::string vApp::getAppPathA() const {
+    char buffer[MAX_PATH] = { 0 };
+    GetModuleFileNameA(m_instance, buffer, MAX_PATH);
+
+    std::string path(buffer);
+    size_t pos = path.find_last_of("\\/");
+    if (pos != std::string::npos) {
+        return path.substr(0, pos + 1); // Include separatorul final (\)
+    }
+    return "";
+}
+
+std::wstring vApp::getAppSubPath(const std::wstring& relativePath) const {
+    std::wstring basePath = getAppPath();
+
+    // Eliminăm eventualele caractere '/' sau '\' de la începutul căii relative
+    std::wstring rel = relativePath;
+    if (!rel.empty() && (rel[0] == L'/' || rel[0] == L'\\')) {
+        rel = rel.substr(1);
+    }
+
+    return basePath + rel;
+}
+
+std::string vApp::getAppSubPathA(const std::string& relativePath) const {
+    std::string basePath = getAppPathA();
+
+    std::string rel = relativePath;
+    if (!rel.empty() && (rel[0] == '/' || rel[0] == '\\')) {
+        rel = rel.substr(1);
+    }
+
+    return basePath + rel;
+}

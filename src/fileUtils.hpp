@@ -1,4 +1,4 @@
-#ifndef FILEUTILS_HPP
+﻿#ifndef FILEUTILS_HPP
 #define FILEUTILS_HPP
 
 #include <string>
@@ -50,6 +50,7 @@
 
 	std::wstring ensureExtension(const std::wstring& name, const std::wstring& extension);
 
-
+	// Citește un fișier text (UTF-8) și îl convertește în std::wstring
+	std::wstring citeste_fisier_utf8(const std::wstring& filePath);
 #endif
 

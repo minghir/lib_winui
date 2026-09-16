@@ -94,7 +94,7 @@ void vDbGridPicker::openGridSelector() {
     auto gridWin = std::make_unique<vWindow>(app->getInstance(), winId, WindowType::DialogWindow, false, getEventDispatcher());
     gridWin->create(L"VDbPicker_" + str_to_wstr(m_id), L"Selectați înregistrarea",
         WS_OVERLAPPEDWINDOW, 200, 200, 900, 600, m_handle, nullptr);
-
+    
     gridWin->setLayoutStrategy(std::make_unique<AnchorLayout>());
 
     // 3. Grid-ul (Zonă Centrală)
@@ -137,26 +137,6 @@ void vDbGridPicker::openGridSelector() {
     btnSelect->setBackgroundColor(RGB(0, 120, 215));
     btnSelect->setTextColor(RGB(255, 255, 255));
     
-
-        // Definim o funcție lambda reutilizabilă pentru a evita duplicarea codului
-    /*
-    auto finalizeSelection = [this, pGridRaw, winId, app](int rowIndex) {
-        vDbGrid* internalGrid = pGridRaw->getDbGrid();
-        if (!internalGrid || rowIndex < 0) return;
-
-        // Extragem valoarea folosind field name-ul dorit
-        std::wstring idVal = trim(internalGrid->getCellValueByFieldName(rowIndex, wstr_to_str(m_returnIdColumn)));
-
-        std::wstring valoare = trim(internalGrid->getCellValueByFieldName(rowIndex, wstr_to_str(m_returnColumn)));
-
-        // Actualizăm picker-ul și închidem
-        this->setSelectedValue(idVal);  //
-        this->setText(valoare);
-        this->getEventDispatcher().dispatch("item_selected", m_id, wstr_to_str(valoare));
-        app->removeWindow(winId);
-    };
-    */
-
     auto finalizeSelection = [this, pGridRaw, winId, app](int rowIndex) {
         vDbGrid* internalGrid = pGridRaw->getDbGrid();
         if (!internalGrid || rowIndex < 0) return;
@@ -224,10 +204,13 @@ void vDbGridPicker::openGridSelector() {
     
     pGridRaw->populate(m_targetQuery);
     gridWin->applyLayout();
-
+    
     vWindow* pWin = gridWin.get();
     app->addWindow(winId, std::move(gridWin));
+    
     pWin->show();
+    pWin->centerWindowToScreen();
+    
 }
 
 

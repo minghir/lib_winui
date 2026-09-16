@@ -84,6 +84,10 @@ public:
     double maxWidth = -1.0;
     double minHeight = -1.0;
 
+    // ⭐ SPAȚIERE RTF (Space Before \sb / Space After \sa în puncte)
+    double spaceBeforePt = 0.0; // Corespunde la \sb
+    double spaceAfterPt = 0.0;  // Corespunde la \sa
+
     // 🖼️ Flow și Poziționare
     std::wstring display = L"block";
     std::wstring position = L"static";

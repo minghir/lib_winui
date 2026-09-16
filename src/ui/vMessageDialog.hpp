@@ -38,53 +38,7 @@ public:
         }
         return vWindow::handleMessage(hwnd, msg, wParam, lParam);
     }
-    /*
-    vMessageDialog(HINSTANCE hInstance, EventDispatcher& dispatcher,
-        const std::wstring& title, const std::wstring& message,
-        MessageType type = MessageType::Info,
-        MessageButtons buttons = MessageButtons::Ok)
-        : vWindow(hInstance, "msgDlg", WindowType::DialogWindow, false, dispatcher)
-    {
-        // 1. Root Layout - Stack Vertical
-        this->setLayoutStrategy(std::make_unique<VerticalStackLayout>());
-
-        // 2. Creare fereastră (dimensiune adaptabilă)
-        //this->create(L"VMessageDlgClass", title, WS_POPUP | WS_CAPTION | WS_SYSMENU,
-        //    0, 0, 430, 200, vApp::getAppInstance()->getMainWindow(), nullptr);
-        this->create(L"VMessageDlgClass", title, WS_POPUP | WS_CAPTION | WS_SYSMENU,
-            0, 0, 430, 200, GetActiveWindow(), nullptr);
-
-        if (getHandle()) {
-            // 3. Panel conținut (Text)
-            auto contentPanel = std::make_unique<vPanel>(m_hInstance, "msgContent", 0, 0, 400, 100, getEventDispatcher());
-            contentPanel->setHeightMode(SizeMode::FILL);
-            contentPanel->setMargins(10, 10, 10, 10);
-            vPanel* pMainPanel = contentPanel.get();
-            this->addChild("content", std::move(contentPanel));
-            
-
-            auto label = std::make_unique<vLabel>(m_hInstance, "lblMsg", message, 0, 10, 360, 60, getEventDispatcher());
-            m_messageLabel = label.get();
-            pMainPanel->addChild("lblMsg", std::move(label));
-
-          
-
-            // 4. Panel butoane (Centrat folosind metoda Spacer-elor)
-            auto btnPanel = std::make_unique<vPanel>(m_hInstance, "msgButtons", 0, 0, 400, 50, getEventDispatcher());
-            btnPanel->setHeightMode(SizeMode::FIXED);
-            btnPanel->setLayoutStrategy(std::make_unique<FlexStackLayout>());
-            btnPanel->setMargins(10, 10, 10, 10);
-            m_buttonPanel = btnPanel.get();
-            this->addChild("buttons", std::move(btnPanel));
-
-            setupButtons(buttons);
-            
-
-            this->applyLayout();
-            this->centerWindow();
-        }
-    }
-    */
+    
 
     vMessageDialog(HINSTANCE hInstance, EventDispatcher& dispatcher,
         const std::wstring& title, const std::wstring& message,
@@ -112,16 +66,19 @@ public:
             auto contentPanel = std::make_unique<vPanel>(m_hInstance, "msgContent", 0, 0, winWidth - 30, estimatedHeight, getEventDispatcher());
             contentPanel->setHeightMode(SizeMode::FILL); // Ocupă tot spațiul până la butoane
             contentPanel->setMargins(15, 15, 15, 10);
+            contentPanel->setBackgroundColor(RGB(255, 255, 255));
             vPanel* pMainPanel = contentPanel.get();
             this->addChild("content", std::move(contentPanel));
 
             // Label-ul trebuie să aibă și el înălțime adaptabilă
             auto label = std::make_unique<vLabel>(m_hInstance, "lblMsg", message, 0, 0, winWidth - 60, estimatedHeight, getEventDispatcher());
+            label->setBackgroundColor(RGB(255, 255, 255));
             m_messageLabel = label.get();
             pMainPanel->addChild("lblMsg", std::move(label));
 
             // 4. Panel butoane
             auto btnPanel = std::make_unique<vPanel>(m_hInstance, "msgButtons", 0, 0, winWidth - 30, 50, getEventDispatcher());
+            btnPanel->setBackgroundColor(RGB(255, 255, 255));
             btnPanel->setHeightMode(SizeMode::FIXED);
             btnPanel->setLayoutStrategy(std::make_unique<FlexStackLayout>());
             btnPanel->setMargins(10, 10, 10, 10);
@@ -152,106 +109,13 @@ public:
         return show(title, message, MessageButtons::YesNo) == "yes";
     }
 
+    static bool ConfirmCancel(const std::wstring& message, const std::wstring& title = L"Confirmare") {
+        // Returnează true dacă rezultatul este "ok"
+        return show(title, message, MessageButtons::OkCancel) == "ok";
+    }
+
     std::string getResult() { return m_result; }
-    /*
-    static std::string show(
-        //HINSTANCE hInstance,
-        const std::wstring& title,
-        const std::wstring& message,
-        MessageButtons buttons = MessageButtons::Ok)
-    {
-        EventDispatcher& disp =  vApp::getAppInstance()->getEventDispatcher();
-        HINSTANCE hInst = vApp::getAppInstance()->getInstance();
-        //vMessageDialog dlg(hInstance, dispatcher, title, message, MessageType::Question, buttons);
-        vMessageDialog dlg(hInst, disp, title, message, MessageType::Question, buttons);
-
-        HWND hParent = GetActiveWindow();
-        if (hParent) EnableWindow(hParent, FALSE); // Blocăm input-ul la părinte
-
-        // CALIFICARE EXPLICITĂ: Spunem compilatorului să caute 'show' în clasa de bază
-        dlg.vWindow::show();
-
-        dlg.setModalActive(true);
-
-        MSG msg;
-        while (dlg.isModalActive() && GetMessage(&msg, nullptr, 0, 0)) {
-            // Procesăm mesajele pentru dialog și copiii săi
-            if (!IsDialogMessage(dlg.getHandle(), &msg)) {
-                TranslateMessage(&msg);
-                DispatchMessage(&msg);
-            }
-
-            // Gestionăm închiderea forțată a aplicației
-            if (msg.message == WM_QUIT) {
-                PostQuitMessage((int)msg.wParam);
-                break;
-            }
-        }
-
-        if (hParent) {
-            EnableWindow(hParent, TRUE);
-            SetForegroundWindow(hParent);
-            SetFocus(hParent); // Redăm focusul către fereastra care a apelat
-        }
-
-        disp.removeHandlers("msgdlg_btnOk_" + std::to_string(reinterpret_cast<size_t>(&dlg)));
-        disp.removeHandlers("msgdlg_btnYes_" + std::to_string(reinterpret_cast<size_t>(&dlg)));
-        disp.removeHandlers("msgdlg_btnNo_" + std::to_string(reinterpret_cast<size_t>(&dlg)));
-        disp.removeHandlers("msgdlg_btnCancel_" + std::to_string(reinterpret_cast<size_t>(&dlg)));
-
-        return dlg.getResult();
-    }
-    */
-    /*
-    static std::string show(
-        const std::wstring& title,
-        const std::wstring& message,
-        MessageButtons buttons = MessageButtons::Ok)
-    {
-        EventDispatcher& disp = vApp::getAppInstance()->getEventDispatcher();
-        HINSTANCE hInst = vApp::getAppInstance()->getInstance();
-
-        // 1. Detectăm fereastra care are focusul ACUM (fereastra de editare, probabil)
-        HWND hParent = GetActiveWindow();
-        if (hParent == NULL) hParent = vApp::getAppInstance()->getMainWindow();
-
-        // 2. Creăm dialogul cu hParent ca proprietar real, nu hardcodat pe MainWindow
-        vMessageDialog dlg(hInst, disp, title, message, MessageType::Question, buttons);
-
-        // Dacă vrei să schimbi părintele după crearea în constructor, 
-        // trebuie să te asiguri că funcția create() din vMessageDialog folosește hParent.
-        // O soluție rapidă este să modifici constructorul să primească hParent:
-        // SetWindowLongPtr(dlg.getHandle(), GWLP_HWNDPARENT, (LONG_PTR)hParent);
-
-        if (hParent) EnableWindow(hParent, FALSE);
-
-        dlg.vWindow::show();
-        dlg.setModalActive(true);
-
-        MSG msg;
-        while (dlg.isModalActive() && GetMessage(&msg, nullptr, 0, 0)) {
-            if (!IsDialogMessage(dlg.getHandle(), &msg)) {
-                TranslateMessage(&msg);
-                DispatchMessage(&msg);
-            }
-            if (msg.message == WM_QUIT) {
-                PostQuitMessage((int)msg.wParam);
-                break;
-            }
-        }
-
-        // 3. ORDINEA CORECTĂ DE REACTIVARE
-        if (hParent) {
-            EnableWindow(hParent, TRUE);    // Mai întâi deblocăm
-            SetActiveWindow(hParent);       // O setăm ca activă
-            SetForegroundWindow(hParent);   // O forțăm în față
-            SetFocus(hParent);              // Îi dăm focusul tastaturii
-        }
-
-        // Curățare handlere...
-        return dlg.getResult();
-    }
-    */
+   
 
 static std::string show(const std::wstring& title, const std::wstring& message, MessageButtons buttons = MessageButtons::Ok) {
     EventDispatcher& disp = vApp::getAppInstance()->getEventDispatcher();
@@ -310,8 +174,12 @@ static std::string show(const std::wstring& title, const std::wstring& message, 
 private:
     void setupButtons(MessageButtons buttons) {
         // Spacer stânga pentru centrare
+        //auto spacerL = std::make_unique<vPanel>(m_hInstance, "spL", 0, 0, 0, 0, getEventDispatcher());
+        //spacerL->setWidthMode(SizeMode::FILL);
+        //m_buttonPanel->addChild("spL", std::move(spacerL));
         auto spacerL = std::make_unique<vPanel>(m_hInstance, "spL", 0, 0, 0, 0, getEventDispatcher());
         spacerL->setWidthMode(SizeMode::FILL);
+        spacerL->setBackgroundColor(RGB(255, 255, 255));
         m_buttonPanel->addChild("spL", std::move(spacerL));
 
         if (buttons == MessageButtons::Ok || buttons == MessageButtons::OkCancel) {
@@ -326,8 +194,12 @@ private:
         }
 
         // Spacer dreapta pentru centrare
+        //auto spacerR = std::make_unique<vPanel>(m_hInstance, "spR", 0, 0, 0, 0, getEventDispatcher());
+        //spacerR->setWidthMode(SizeMode::FILL);
+        //m_buttonPanel->addChild("spR", std::move(spacerR));
         auto spacerR = std::make_unique<vPanel>(m_hInstance, "spR", 0, 0, 0, 0, getEventDispatcher());
         spacerR->setWidthMode(SizeMode::FILL);
+        spacerR->setBackgroundColor(RGB(255, 255, 255));
         m_buttonPanel->addChild("spR", std::move(spacerR));
     }
 

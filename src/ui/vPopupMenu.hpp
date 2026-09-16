@@ -10,28 +10,6 @@ public:
     vPopupMenu(const std::string& id, EventDispatcher& dispatcher)
         : vMenu(id, dispatcher) {}
 
-    // Suprascriem create pentru a folosi CreatePopupMenu
-    /*
-    void create(HWND parent = nullptr) override {
-        if (m_handle) {
-            DestroyMenu(m_handle);
-        }
-
-        m_handle = CreatePopupMenu();
-
-        // Dacă ai deja iteme în vector (adăugate înainte de create)
-        // trebuie să le adăugăm acum în noul handle
-        for (const auto& item : m_menuItems) {
-            if (item.isSeparator) {
-                AppendMenuW(m_handle, MF_SEPARATOR, 0, NULL);
-            }
-            else {
-                AppendMenuW(m_handle, MF_STRING, item.win32Id, item.text.c_str());
-            }
-        }
-    }
-    */
-
     void create(HWND parent = nullptr) override {
         if (m_handle) {
             DestroyMenu(m_handle);

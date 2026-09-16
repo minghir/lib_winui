@@ -104,21 +104,18 @@ bool dataSource::getDbData(){
     if(type == "table"){
         query = L"SELECT * FROM " + query;
     }
-    //std::wcout << "Incerc query:" << query << std::endl;
-    if(conn->isConnected()){
 
-       // std::cout<<name<<"-:conectat"<<std::endl;
+    LOG_DEBUG(L"dataSource::getDbData(): PREGATESC QUERY:" + query);
+
+    if(conn->isConnected()){
     }
     else{
-        //std::cout<<name<<"!!!!!!!:Neconectat"<<wstr_to_str(conn->getConnectionDSN())<<std::endl;
         conn->openDatabase();
-
     }
     
     prepareQuery();
-    //std::wcout << L"Am sa rulez "<<str_to_wstr(name) << ":" << run_query << std::endl<<std::endl;
 
-
+    LOG_INFO(L"dataSource::getDbData(): EXECUT IN DB QUERY:" + run_query);
     if(!conn->execQuery(run_query,name)){
         return false;
      }

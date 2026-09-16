@@ -28,7 +28,8 @@ enum class ControlType {
     DatePicker,
     Separator,
     StatusBar,
-    RadioGroup
+    RadioGroup,
+    ProgressBar
 };
 
 
@@ -345,6 +346,10 @@ public:
     }
 
     vControl* getChildRecursive(const std::string& id);
+
+    vControl* findChild(const std::string& id) {
+        return getChildRecursive(id);
+    }
 
     template<typename T>
     T* findChild(const std::string& id) {

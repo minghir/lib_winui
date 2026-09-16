@@ -8,6 +8,7 @@
 
 #include <iostream>
 #include <filesystem>
+#include <cwctype>
 
 
 
@@ -515,4 +516,51 @@ void csvConnection::clearStatement(std::string stm_name = "default") {
 
         // LOG_DEBUG(L"csvConnection::clearStatement: Memoria pentru contextul '" + str_to_wstr(stm_name) + L"' a fost eliberată.");
     }
+}
+
+
+bool csvConnection::execQuery(const std::wstring& query, const std::vector<std::wstring>& params, std::string stm_name) {
+    // 1. Înlocuim placeholder-ii '?' din query cu valorile din vectorul de parametri
+    std::wstring processedQuery = query;
+    size_t paramIdx = 0;
+    size_t pos = 0;
+
+    // Funcție lambda ajutătoare pentru a verifica dacă un șir este numeric
+    auto isNumeric = [](const std::wstring& s) {
+        if (s.empty()) return false;
+        size_t start = (s[0] == L'-' || s[0] == L'+') ? 1 : 0;
+        if (start == s.length()) return false;
+        bool hasDecimal = false;
+        for (size_t i = start; i < s.length(); ++i) {
+            if (s[i] == L'.') {
+                if (hasDecimal) return false;
+                hasDecimal = true;
+            }
+            else if (!std::iswdigit(s[i])) {
+                return false;
+            }
+        }
+        return true;
+    };
+
+    while ((pos = processedQuery.find(L'?', pos)) != std::wstring::npos && paramIdx < params.size()) {
+        std::wstring rawVal = params[paramIdx];
+        std::wstring formattedVal;
+
+        // Dacă nu este numeric, îl încadrăm între ghilimele simple pentru SQL pe fișiere text
+        if (isNumeric(rawVal)) {
+            formattedVal = rawVal;
+        }
+        else {
+            // Escapăm eventualele ghilimele simple din text dacă este nevoie, apoi punem ghilimele
+            formattedVal = L"'" + rawVal + L"'";
+        }
+
+        processedQuery.replace(pos, 1, formattedVal);
+        pos += formattedVal.length();
+        paramIdx++;
+    }
+
+    // 2. Apelăm execQuery-ul clasic existent pe interogarea deja populată cu valori
+    return execQuery(processedQuery, stm_name);
 }

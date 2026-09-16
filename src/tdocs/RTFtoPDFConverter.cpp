@@ -1,7 +1,10 @@
 ﻿#include "RtfToPdfConverter.hpp"
 #include "ConvertUtils.hpp" // Adăugăm utilitarul pentru twipsToPoints
+
+
 #include <algorithm>
 #include <cmath> 
+#include <functional>
 
 // --- Helper Functions (Definițiile trebuie să fie disponibile) ---
 
@@ -9,14 +12,32 @@ extern std::string wstring_to_utf8(const std::wstring& wstr);
 extern std::wstring str_to_wstr(const std::string& str);
 
 
-// -----------------------------------------------------------------
-// METODA PRINCIPALĂ: CONVERTIRE
-// -----------------------------------------------------------------
+double calculateRowHeight(const RtfRow& row, const std::vector<double>& colWidths) {
+    double maxHeight = 15.0; // Înălțime minimă de siguranță
 
-bool RtfToPdfConverter::convert(const std::wstring& filename) {
-    // 1. Inițializare document PDF
-   
-    // Extrage informațiile paginii (în Twips)
+    for (const auto& cell : row.cells) {
+        double cellHeight = 0.0;
+        for (const auto& block : cell.content) {
+            if (const auto* para = dynamic_cast<const RtfParagraph*>(block.get())) {
+                double fontSize = para->style.fontSize > 0 ? para->style.fontSize : 10.0;
+                double lineHeight = fontSize * (para->style.lineHeight > 0 ? para->style.lineHeight : 1.2);
+                cellHeight += lineHeight;
+            }
+        }
+        // Adăugăm padding-ul celulei (conversie din twips în pt)
+        cellHeight += (cell.padding.topTwips + cell.padding.bottomTwips) / 20.0;
+        if (cellHeight > maxHeight) maxHeight = cellHeight;
+    }
+    return maxHeight;
+}
+
+
+static std::vector<ParagraphLine> buildParagraphLines(
+    const RtfParagraph& paragraph,
+    const std::function<std::wstring(const std::wstring&)>& textReplacer);
+
+bool RtfToPdfConverter::prepareAndRunPipeline() {
+    // 1. Extrage informațiile paginii (în Twips)
     const RtfPage& pageInfoTwips = m_rtfDocument.getPageInfo();
 
     // ⭐ CONVERSIE: Calculează dimensiunile și marginile în PUNCTE PDF
@@ -27,17 +48,22 @@ bool RtfToPdfConverter::convert(const std::wstring& filename) {
     m_marginRight = ConvertUtils::twipsToPoints(pageInfoTwips.getMarginRightTwips());
     double marginTop = ConvertUtils::twipsToPoints(pageInfoTwips.getMarginTopTwips());
 
-    outputFilePath = filename; // Placeholder
-       
-    // B. Inițializare state (Moștenite din BasePdfConverter)
-    m_pageHeight = pageHeight; // TREBUIE SA FIE INALTIMEA PAGINII (595.35 pt)
+    // Fallback anti-crash pentru dimensiuni de pagină invalide/zero
+    if (pageWidth <= 0.0) pageWidth = 595.28;  // Standard A4 portrait (points)
+    if (pageHeight <= 0.0) pageHeight = 841.89;
+
+    // Inițializare state
+    m_pageHeight = pageHeight;
     m_contentWidth = pageWidth - m_marginLeft - m_marginRight;
+    if (m_contentWidth <= 0.0) {
+        m_contentWidth = pageWidth - 72.0; // Margin minimă de siguranță de câte 36pt (0.5 inch)
+        m_marginLeft = 36.0;
+        m_marginRight = 36.0;
+    }
     m_currentY = marginTop;
 
-    if (!m_pdfWriter.initialize(outputFilePath, pageWidth, pageHeight)) {
-        LOG_FATAL(L"Eroare fatală la inițializarea PdfWriter. Nu se poate continua.");
-        return false;
-    }
+    // Curățăm coada de randare din eventualele rulări anterioare
+    m_renderQueue.clear();
 
     RenderInstruction instruction;
     instruction.renderFunction = L"startPage";
@@ -45,10 +71,11 @@ bool RtfToPdfConverter::convert(const std::wstring& filename) {
     instruction.height = pageHeight;
     m_renderQueue.push_back(instruction);
 
-    // C. Pornirea primei pagini
-    
+    // Pornirea primei pagini
     m_currentPageNumber = 1;
     m_totalPagesCount = m_currentPageNumber;
+    
+    renderHeader();
 
     LOG_SUCCESS(L"Incepe conversia RTF. Dimensiune continut: " + std::to_wstring(m_contentWidth) + L"pt.");
 
@@ -59,6 +86,8 @@ bool RtfToPdfConverter::convert(const std::wstring& filename) {
         }
     }
     renderFooter();
+
+    finalizePageNumbers();
 
     initializeGlobalVarResolvers();
 
@@ -72,7 +101,87 @@ bool RtfToPdfConverter::convert(const std::wstring& filename) {
     }
 }
 
+// -----------------------------------------------------------------------------
+// 1. Metoda pentru Disk (Salvare pe HDD)
+// -----------------------------------------------------------------------------
+bool RtfToPdfConverter::convert(const std::wstring& filename) {
+    outputFilePath = filename;
 
+    // Pregătim dimensiunile paginii din RTF
+    const RtfPage& pageInfo = m_rtfDocument.getPageInfo();
+    double w = ConvertUtils::twipsToPoints(pageInfo.getWidthTwips());
+    double h = ConvertUtils::twipsToPoints(pageInfo.getHeightTwips());
+
+    if (w <= 0.0) w = 595.28;
+    if (h <= 0.0) h = 841.89;
+
+    // ⭐ 1. Inițializăm O SINGURĂ DATĂ pe disc
+    if (!m_pdfWriter.initialize(outputFilePath, w, h)) {
+        LOG_FATAL(L"Eroare fatală la inițializarea PdfWriter. Nu se poate continua.");
+        return false;
+    }
+
+    // ⭐ 2. Rulăm pipeline-ul de randare (FĂRĂ re-inițializarea din memorie!)
+    if (!prepareAndRunPipeline()) {
+        return false;
+    }
+
+    // ⭐ 3. Finalizăm fișierul pe disc (Scrie trailer-ul și închide fișierul corect!)
+    if (!m_pdfWriter.finalize()) {
+        LOG_ERROR(L"[RTF2PDF] Apelul m_pdfWriter.finalize() a eșuat la salvarea pe disc!");
+        return false;
+    }
+
+    return true;
+}
+
+// -----------------------------------------------------------------------------
+// 2. METODA PENTRU MEMORIE (RAM)
+// -----------------------------------------------------------------------------
+bool RtfToPdfConverter::convertToMemory(std::vector<uint8_t>& outPdfBuffer) {
+    outPdfBuffer.clear();
+
+    const RtfPage& pageInfo = m_rtfDocument.getPageInfo();
+    double w = ConvertUtils::twipsToPoints(pageInfo.getWidthTwips());
+    double h = ConvertUtils::twipsToPoints(pageInfo.getHeightTwips());
+
+    if (w <= 0.0) w = 595.28;
+    if (h <= 0.0) h = 841.89;
+
+    // ⭐ 1. Inițializăm în memorie O SINGURĂ DATĂ AICI
+    if (!m_pdfWriter.initializeToMemory(w, h)) {
+        LOG_ERROR(L"[RTF2PDF] Eșec critic la inițializarea m_pdfWriter în memorie!");
+        return false;
+    }
+
+    // ⭐ 2. Rulăm pipeline-ul de preparare și randare
+    if (!prepareAndRunPipeline()) {
+        LOG_ERROR(L"[RTF2PDF] Eșec la executarea pipeline-ului de randare!");
+        return false;
+    }
+
+    // ⭐ 3. Finalizăm documentul PDF
+    if (!m_pdfWriter.finalize()) {
+        LOG_ERROR(L"[RTF2PDF] Apelul m_pdfWriter.finalize() a returnat false!");
+        return false;
+    }
+
+    // ⭐ 4. Extragerea datelor din stream
+    std::string pdfBinaryData = m_pdfWriter.getMemoryData();
+
+    if (pdfBinaryData.empty()) {
+        LOG_ERROR(L"[RTF2PDF] Buffer-ul PDF din m_pdfWriter este gol!");
+        return false;
+    }
+
+    outPdfBuffer.assign(pdfBinaryData.begin(), pdfBinaryData.end());
+
+    LOG_SUCCESS(L"[RTF2PDF] Conversia în memorie a reușit! Dimensiune PDF: " +
+        std::to_wstring(outPdfBuffer.size()) + L" octeți.");
+    return true;
+}
+
+/*
 void RtfToPdfConverter::newLineAndCheckPageBreak(double requiredHeight) {
     const RtfPage& pageInfoTwips = m_rtfDocument.getPageInfo();
     const double EPSILON = 0.1;
@@ -81,48 +190,87 @@ void RtfToPdfConverter::newLineAndCheckPageBreak(double requiredHeight) {
     double marginBottom = ConvertUtils::twipsToPoints(pageInfoTwips.getMarginBottomTwips());
     double marginTop = ConvertUtils::twipsToPoints(pageInfoTwips.getMarginTopTwips());
 
-    // Spațiul rămas între cursorul Y curent și marginea de jos a paginii (exclusiv marginBottom)
-    double y_remaining_usable_space = m_pageHeight - m_currentY - marginBottom;
+    // ⭐ CORECȚIE CRITICĂ: Scădem și înălțimea subsolului (getFooterHeight())
+    // astfel încât corpul să se oprească ÎNAINTE de zona rezervată subsolului.
+    double footerHeight = getFooterHeight();
+    double y_remaining_usable_space = m_pageHeight - m_currentY - marginBottom - footerHeight;
 
     // Dacă spațiul rămas e mai mic strict decât înălțimea necesară
     if (requiredHeight > y_remaining_usable_space + EPSILON) {
         LOG_INFO(L"[PAGINARE] Pagina plină. Trecere la pagina următoare.");
 
-        // 1. Randare Footer pe pagina curentă (care se va termina)
-        // -------------------------------------------------------------
-        renderFooter(); // ⭐ APEL AICI
-        // -------------------------------------------------------------
+        // 1. Randare Footer pe pagina curentă
+        renderFooter();
 
         // 2. Finalizează pagina curentă
         RenderInstruction instruction;
         instruction.renderFunction = L"endPage";
         m_renderQueue.push_back(instruction);
-        //pdfWriter.endPage();
 
         // 3. Deschide o pagină nouă 
         pageWidth = ConvertUtils::twipsToPoints(pageInfoTwips.getWidthTwips());
         pageHeight = ConvertUtils::twipsToPoints(pageInfoTwips.getHeightTwips());
 
-
-        //RenderInstruction instruction;
         instruction.renderFunction = L"startPage";
         instruction.width = pageWidth;
         instruction.height = pageHeight;
         m_renderQueue.push_back(instruction);
 
-        //pdfWriter.startPage(pageWidth, pageHeight);
         m_currentPageNumber++;
         m_totalPagesCount++;
 
         // 4. Resetează cursorul Y la marginea de sus
-        m_currentY = marginTop; // Începe din nou de sus (în PT)
+        m_currentY = marginTop;
 
-        // 5. Randare Header pe noua pagină (Header-ul este primul element de conținut)
-        // -------------------------------------------------------------
-        //renderHeader(); // ⭐ APEL HEADER
-        // -------------------------------------------------------------
+        // 5. Randare Header pe noua pagină
+        renderHeader();
     }
 }
+*/
+void RtfToPdfConverter::newLineAndCheckPageBreak(double requiredHeight) {
+    const RtfPage& pageInfoTwips = m_rtfDocument.getPageInfo();
+    const double EPSILON = 0.1;
+
+    double marginBottom = ConvertUtils::twipsToPoints(pageInfoTwips.getMarginBottomTwips());
+    double marginTop = ConvertUtils::twipsToPoints(pageInfoTwips.getMarginTopTwips());
+    double footerHeight = getFooterHeight();
+    double y_remaining_usable_space = m_pageHeight - m_currentY - marginBottom - footerHeight;
+
+    if (requiredHeight > y_remaining_usable_space + EPSILON) {
+        LOG_INFO(L"[PAGINARE] Pagina plină. Trecere la pagina următoare.");
+
+        renderFooter();
+
+        RenderInstruction instruction;
+        instruction.renderFunction = L"endPage";
+        m_renderQueue.push_back(instruction);
+
+        pageWidth = ConvertUtils::twipsToPoints(pageInfoTwips.getWidthTwips());
+        pageHeight = ConvertUtils::twipsToPoints(pageInfoTwips.getHeightTwips());
+
+        instruction.renderFunction = L"startPage";
+        instruction.width = pageWidth;
+        instruction.height = pageHeight;
+        m_renderQueue.push_back(instruction);
+
+        m_currentPageNumber++;
+        m_totalPagesCount++;
+
+        m_currentY = marginTop;
+
+        renderHeader();
+
+        // Re-randare cap de tabel pe pagina nouă
+        if (m_isProcessingTable && !m_isRenderingHeader && !m_currentTableHeaderRows.empty()) {
+            m_isRenderingHeader = true;
+            for (const auto* hRow : m_currentTableHeaderRows) {
+                processRtfRow(*hRow, hRow->columnWidthsPt); // ⭐ Lățimile specifice fiecărui rând din antet
+            }
+            m_isRenderingHeader = false;
+        }
+    }
+}
+
 // -----------------------------------------------------------------
 // 2. FUNCȚII DE RANDARE STRUCTURALĂ
 // -----------------------------------------------------------------
@@ -428,7 +576,7 @@ void RtfToPdfConverter::renderWords(
         if (wordWithSpace == L"\\t") {
             // Nu randăm nimic, doar avansăm cursorul.
             // Presupunând că tabWidth era 36.0 (sau lățimea tab-ului)
-            LOG_WARNING(L"AM GASIT TAAAAAAAAAAAAB");
+            //LOG_WARNING(L"AM GASIT TAAAAAAAAAAAAB");
             currentX += TAB_WIDTH;
             continue; // Treci la următorul cuvânt/spațiu
         }
@@ -481,58 +629,6 @@ void RtfToPdfConverter::renderWords(
 }
 
 
-
-/*
-void RtfToPdfConverter::renderWords(
-    const std::vector<std::pair<std::wstring, Style>>& words,
-    const std::wstring& alignment,
-    double lineContentWidth,
-    double lineHeight)
-{
-    // Trecere la Rând Nou și Verificare Paginare
-    newLineAndCheckPageBreak(lineHeight);
-    m_currentY += lineHeight;
-    
-
-    // 1. Calculează poziția X de start pentru aliniere
-    double x_start_for_rendering = calculateLineXStart(
-        alignment,
-        m_contentWidth,
-        lineContentWidth, // Lățimea tuturor cuvintelor acumulate
-        m_marginLeft // Deja include padding-ul stânga al celulei
-    );
-
-    double currentX = x_start_for_rendering;
-    double yBaseline = m_pageHeight - m_currentY;
-
-    // 2. Randează fiecare cuvânt
-    for (const auto& wordPair : words) {
-        const std::wstring& wordWithSpace = wordPair.first;
-        
-        const Style& style = wordPair.second;
-
-        //if (wordWithSpace == L"\n\n") newLineAndCheckPageBreak(lineHeight);// || wordWithSpace == L"\f") continue;
-
-
-        RenderInstruction instruction;
-        instruction.x = currentX;
-        instruction.y = yBaseline;
-        instruction.text_content = wordWithSpace;
-        instruction.style = style;
-        instruction.renderFunction = L"text";
-        m_renderQueue.push_back(instruction);
-
-        // Folosește direct addTextWithSyle cu stilul corect al cuvântului
-        LOG_INFO(L"RANDEZ:" + wordWithSpace+ L" Font-family:"+style.fontFamily + L" Font-wight:" + style.fontWeight);
-        //pdfWriter.addTextWithSyle(currentX, yBaseline, wordWithSpace, style);
-
-        // Măsoară lățimea pentru a avansa cursorul
-        double wordWidth = m_pdfWriter.measureTextWidth(wordWithSpace, style);
-        currentX += wordWidth;
-    }
-}
-*/
-
 // ----------------------------------------------------
 // NOU: Funcție Auxiliară pentru Randarea Span-urilor
 // ----------------------------------------------------
@@ -561,35 +657,81 @@ void RtfToPdfConverter::renderSpans(const std::vector<const RtfSpan*>& spans, do
 // 3. FUNCȚII DE RANDARE PRIMITIVE (Apelează Wrapper-ul)
 // -----------------------------------------------------------------
 
-// În RtfToPdfConverter.cpp
+
+/*
 void RtfToPdfConverter::processRtfTable(const RtfTable& table) {
     LOG_WARNING(L"Randare tabel RTF: Incepe. Randuri: " + std::to_wstring(table.rows.size()));
 
-    // Obține lățimile coloanelor o singură dată
     if (table.rows.empty()) {
         LOG_WARNING(L"Tabelul este gol, randare anulată.");
         return;
     }
 
-    // ⭐ Calculăm înălțimea minimă a întregului tabel pentru paginare inițială
-    // (O estimare rapidă: 1 rând * 12pt înălțime)
-    double estimatedHeight = table.rows.size() * 12.0;
-    newLineAndCheckPageBreak(estimatedHeight);
-
-    // Avansăm cursorul Y la începutul tabelului
-    double tableStartTopY = m_currentY;
-
-    // 2. Procesează fiecare rând
-    for (size_t i = 0; i < table.rows.size(); ++i) {
-        processRtfRow(table.rows[i], table.columnWidthsPt);
+    // 1. Colectăm rândurile marcate ca antet (\trhdr) de la începutul tabelului
+    std::vector<const RtfRow*> headerRows;
+    for (const auto& row : table.rows) {
+        if (row.isHeader) {
+            headerRows.push_back(&row);
+        }
+        else {
+            break; // Antetele sunt întotdeauna consecutive la începutul tabelului
+        }
     }
 
-    // Nu avansăm m_currentY aici, deoarece processRtfRow și processRtfCell
-    // vor gestiona înălțimea.
+    // 2. Procesăm rând cu rând
+    for (size_t i = 0; i < table.rows.size(); ++i) {
+        const RtfRow& row = table.rows[i];
 
-    // Dacă doriți să desenați borduri de tabel, puteți face apeluri PDF de desenare AICI
-    // folosind tableStartTopY și m_currentY.
+        // Estimăm înălțimea rândului curent (ex: 15pt de siguranță)
+        double estimatedRowHeight = 15.0;
+
+        // Salvăm numărul paginii curente înainte de verificarea de paginare
+        int pageBefore = m_currentPageNumber;
+
+        // Verificăm dacă rândul curent încape pe pagină sau forțăm pagina nouă
+        newLineAndCheckPageBreak(estimatedRowHeight);
+
+        // ⭐ DACA S-A TRECUT PE O PAGINĂ NOUĂ:
+        // Re-randăm capul de tabel înainte de a randa rândul de date curent
+        if (m_currentPageNumber > pageBefore && !row.isHeader && !headerRows.empty()) {
+            LOG_DEBUG(L"Tabelul continuă pe o pagină nouă -> Re-randare cap de tabel.");
+            for (const auto* hRow : headerRows) {
+                processRtfRow(*hRow, table.columnWidthsPt);
+            }
+        }
+
+        // 3. Randăm rândul curent
+        processRtfRow(row, table.columnWidthsPt);
+    }
 }
+*/
+void RtfToPdfConverter::processRtfTable(const RtfTable& table) {
+    if (table.rows.empty()) return;
+
+    // 1. Colectăm rândurile marcate ca antet (\trhdr)
+    std::vector<const RtfRow*> headerRows;
+    for (const auto& row : table.rows) {
+        if (row.isHeader) {
+            headerRows.push_back(&row);
+        }
+        else {
+            break;
+        }
+    }
+
+    m_isProcessingTable = true;
+    m_currentTableHeaderRows = headerRows;
+
+    // 2. Randăm fiecare rând cu propriile sale lățimi de coloană
+    for (size_t i = 0; i < table.rows.size(); ++i) {
+        const auto& row = table.rows[i];
+        processRtfRow(row, row.columnWidthsPt); // ⭐ Trimitem row.columnWidthsPt
+    }
+
+    m_isProcessingTable = false;
+    m_currentTableHeaderRows.clear();
+}
+
 
 std::wstring paragraphToText(const RtfParagraph& paragraph) {
     std::wstring result;
@@ -617,7 +759,7 @@ std::wstring extractCellText(const RtfCell& cell) {
 
 
 
-
+/*
 void RtfToPdfConverter::processRtfRow(const RtfRow& row, const std::vector<double>& colWidths) {
 
     if (row.cells.empty() || colWidths.empty()) {
@@ -740,7 +882,143 @@ void RtfToPdfConverter::processRtfRow(const RtfRow& row, const std::vector<doubl
 
     //LOG_DEBUG(L"Randare rând tabel RTF finalizată. Înălțime rând: " + std::to_wstring(maxRowHeight) + L"pt. Cursor Y avansat.");
 }
+*/
+/*
+void RtfToPdfConverter::processRtfRow(const RtfRow& row, const std::vector<double>& colWidths) {
+    if (row.cells.empty() || colWidths.empty()) return;
 
+    double tableMarginLeftPt = m_marginLeft;
+    double cellStartTopY = m_currentY;
+
+    // 1. Verificare paginare preventivă
+    double estimatedRowHeight = 15.0;
+    newLineAndCheckPageBreak(estimatedRowHeight);
+    cellStartTopY = m_currentY;
+
+    // 2. Randare celule și calcul înălțime rând
+    double maxRowHeight = 0.0;
+
+    for (size_t j = 0; j < row.cells.size(); ++j) {
+        const RtfCell& cell = row.cells[j];
+
+        // ⭐ Dacă celula este continuarea unei comasări (\clmrg), o sărim
+        if (cell.isMergeNext) continue;
+
+        double cellStartX = (j == 0) ? tableMarginLeftPt : (tableMarginLeftPt + colWidths[j - 1]);
+
+        // Calculăm poziția finală luând în calcul colspan-ul
+        size_t endColIdx = std::min<size_t>(j + cell.colspan - 1, colWidths.size() - 1);
+        double cellEndX = tableMarginLeftPt + colWidths[endColIdx];
+        double cellWidth = cellEndX - cellStartX;
+
+        if (cellWidth > 0.0) {
+            double actualHeight = processRtfCell(cell, cellStartX, cellStartTopY, cellWidth, 0.0);
+            maxRowHeight = std::max<double>(maxRowHeight, actualHeight);
+        }
+    }
+
+    if (maxRowHeight <= 0.0) maxRowHeight = estimatedRowHeight;
+
+    // 3. Desenare borduri
+    double yBottomPdf = m_pageHeight - cellStartTopY - maxRowHeight;
+    double yTopPdf = m_pageHeight - cellStartTopY;
+
+    for (size_t j = 0; j < row.cells.size(); ++j) {
+        const RtfCell& cell = row.cells[j];
+
+        if (cell.isMergeNext) continue;
+
+        double cellStartX = (j == 0) ? tableMarginLeftPt : (tableMarginLeftPt + colWidths[j - 1]);
+        size_t endColIdx = std::min<size_t>(j + cell.colspan - 1, colWidths.size() - 1);
+        double cellEndX = tableMarginLeftPt + colWidths[endColIdx];
+
+        renderCellBorder(cell.borders.left, cellStartX, yTopPdf, cellStartX, yBottomPdf);
+        renderCellBorder(cell.borders.right, cellEndX, yTopPdf, cellEndX, yBottomPdf);
+        renderCellBorder(cell.borders.top, cellStartX, yTopPdf, cellEndX, yTopPdf);
+        renderCellBorder(cell.borders.bottom, cellStartX, yBottomPdf, cellEndX, yBottomPdf);
+    }
+
+    // 4. Avansare cursor Y
+    m_currentY = cellStartTopY + maxRowHeight;
+}
+*/
+
+void RtfToPdfConverter::processRtfRow(const RtfRow& row, const std::vector<double>& colWidths) {
+    if (row.cells.empty() || colWidths.empty()) return;
+
+    double tableMarginLeftPt = m_marginLeft;
+    const double fallbackRowHeight = 15.0;
+
+    // 1. Calculăm înălțimea estimată a întregului rând
+    double estimatedRowHeight = calculateRowHeight(row, colWidths);
+    if (estimatedRowHeight <= 0.0) estimatedRowHeight = fallbackRowHeight;
+
+    // ⭐ 2. VERIFICARE PAGINARE ÎNAINTE DE A ÎNCEPE DESENAREA CELULELOR!
+    // Dacă re-randăm antetul (m_isRenderingHeader == true), nu mai verificăm paginarea din nou
+    if (!m_isRenderingHeader) {
+        newLineAndCheckPageBreak(estimatedRowHeight);
+    }
+
+    // Salvador Y-ul de start DUPĂ eventuala schimbare de pagină!
+    double cellStartTopY = m_currentY;
+
+    // 3. Randare celule și calcul înălțime reală rând
+    double maxRowHeight = 0.0;
+
+    for (size_t j = 0; j < row.cells.size(); ++j) {
+        const RtfCell& cell = row.cells[j];
+
+        // Dacă celula este continuarea unei comasări (\clmrg), o sărim
+        if (cell.isMergeNext) continue;
+
+        double cellStartX = (j == 0) ? tableMarginLeftPt : (tableMarginLeftPt + colWidths[j - 1]);
+
+        // Calculăm poziția finală luând în calcul colspan-ul
+        size_t endColIdx = std::min<size_t>(j + cell.colspan - 1, colWidths.size() - 1);
+        double cellEndX = tableMarginLeftPt + colWidths[endColIdx];
+        double cellWidth = cellEndX - cellStartX;
+
+        if (cellWidth > 0.0) {
+            int pageBeforeCell = m_currentPageNumber;
+
+            double actualHeight = processRtfCell(cell, cellStartX, cellStartTopY, cellWidth, 0.0);
+
+            // ⭐ Dacă celula a schimbat totuși pagina în interiorul ei, 
+            // actualizăm cellStartTopY pentru celulele rămase din acest rând
+            if (m_currentPageNumber > pageBeforeCell) {
+                cellStartTopY = m_currentY;
+            }
+
+            maxRowHeight = std::max<double>(maxRowHeight, actualHeight);
+        }
+    }
+
+    if (maxRowHeight <= 0.0) maxRowHeight = fallbackRowHeight;
+
+    // 4. Desenare borduri
+    double yBottomPdf = m_pageHeight - cellStartTopY - maxRowHeight;
+    double yTopPdf = m_pageHeight - cellStartTopY;
+
+    for (size_t j = 0; j < row.cells.size(); ++j) {
+        const RtfCell& cell = row.cells[j];
+
+        if (cell.isMergeNext) continue;
+
+        double cellStartX = (j == 0) ? tableMarginLeftPt : (tableMarginLeftPt + colWidths[j - 1]);
+        size_t endColIdx = std::min<size_t>(j + cell.colspan - 1, colWidths.size() - 1);
+        double cellEndX = tableMarginLeftPt + colWidths[endColIdx];
+
+        renderCellBorder(cell.borders.left, cellStartX, yTopPdf, cellStartX, yBottomPdf);
+        renderCellBorder(cell.borders.right, cellEndX, yTopPdf, cellEndX, yBottomPdf);
+        renderCellBorder(cell.borders.top, cellStartX, yTopPdf, cellEndX, yTopPdf);
+        renderCellBorder(cell.borders.bottom, cellStartX, yBottomPdf, cellEndX, yBottomPdf);
+    }
+
+    // 5. Avansare cursor Y pentru rândul următor
+    m_currentY = cellStartTopY + maxRowHeight;
+}
+
+/*
 double RtfToPdfConverter::processRtfCell(const RtfCell& cell, double cellStartX, double cellStartY, double cellWidth, double cellHeight) {
     // Loghează poziția și lățimea REALĂ a celulei.
     //LOG_DEBUG(L"Randare celulă tabel RTF - Incepe la X=" + std::to_wstring(cellStartX) + L", W=" + std::to_wstring(cellWidth));
@@ -811,6 +1089,51 @@ double RtfToPdfConverter::processRtfCell(const RtfCell& cell, double cellStartX,
     // 6. Returnează înălțimea totală de care a avut nevoie celula (cu padding).
     return totalCellHeightUsed;
 }
+*/
+double RtfToPdfConverter::processRtfCell(const RtfCell& cell, double cellStartX, double cellStartY, double cellWidth, double cellHeight) {
+    double original_marginLeft = m_marginLeft;
+    double original_contentWidth = m_contentWidth;
+    double original_currentY = m_currentY;
+    int startPageNumber = m_currentPageNumber; // ⭐ Salvăm numărul paginii de start
+
+    double paddingLeftPt = ConvertUtils::twipsToPoints(cell.padding.leftTwips);
+    double paddingRightPt = ConvertUtils::twipsToPoints(cell.padding.rightTwips);
+    double paddingTopPt = ConvertUtils::twipsToPoints(cell.padding.topTwips);
+    double paddingBottomPt = ConvertUtils::twipsToPoints(cell.padding.bottomTwips);
+
+    m_marginLeft = cellStartX + paddingLeftPt;
+    m_contentWidth = cellWidth - paddingLeftPt - paddingRightPt;
+    m_currentY = cellStartY + paddingTopPt;
+
+    if (m_contentWidth <= 0.0) {
+        m_marginLeft = original_marginLeft;
+        m_contentWidth = original_contentWidth;
+        m_currentY = original_currentY;
+        return 0.0;
+    }
+
+    double totalCellHeightUsed = 0.0;
+    for (const auto& block : cell.content) {
+        if (const RtfParagraph* paragraph = dynamic_cast<const RtfParagraph*>(block.get())) {
+            double height = processRtfParagraph(*paragraph);
+            totalCellHeightUsed += height;
+        }
+    }
+
+    totalCellHeightUsed += paddingTopPt + paddingBottomPt;
+
+    // Restaurăm marginile orizontale
+    m_marginLeft = original_marginLeft;
+    m_contentWidth = original_contentWidth;
+
+    // ⭐ CORECȚIE CRITICĂ: Restaurăm m_currentY DOAR dacă am rămas pe aceeași pagină!
+    // Dacă s-a schimbat pagina, păstrăm m_currentY de pe noua pagină.
+    if (m_currentPageNumber == startPageNumber) {
+        m_currentY = original_currentY;
+    }
+
+    return totalCellHeightUsed;
+}
 
 void RtfToPdfConverter::processRtfSpan(const RtfSpan& span) {
     // Nu ar trebui să fie apelate direct.
@@ -820,120 +1143,70 @@ void RtfToPdfConverter::applyStyleToWriter(const Style& style) {
     // Nu face nimic în această implementare (stateless styling).
 }
 
-/*
+
 void RtfToPdfConverter::renderCellBorder(
     const BorderSpec& spec,
     double x1, double y1, double x2, double y2)
 {
-    // 1. Verifică condițiile de bază (bordură definită și stil Single)
-    if (spec.isSet() && spec.style == RtfBorderStyle::Single) {
+    // Verificăm dacă bordura este setată și este vizibilă
+    if (spec.isSet() && spec.style != RtfBorderStyle::None) {
 
-        // Convertim lățimea din Twips în Puncte (1pt = 20 Twips)
         double widthPt = static_cast<double>(spec.widthTwips) / 20.0;
 
-        // Asigură-te că grosimea este pozitivă
+        // Dacă grosimea nu este definită explicit, aplicăm o valoare implicită vizibilă
         if (widthPt <= 0.0) {
-            return;
+            widthPt = 0.5;
         }
-
-        // 2. Definește culoarea (Negru)
-        // Presupunând că ColorRgb are membri r, g, b (0.0 la 1.0)
-        ColorRgb blackColor = { 0.0, 0.0, 0.0 }; // Negru
-
-        // 3. Apelul la PdfWriterWrapper::addLine
-        // Parametrii: x1, y1, x2, y2, thickness, color
-
-        RenderInstruction instruction;
-        instruction.x = x1;
-        instruction.y = y1;
-        instruction.width = x2;
-        instruction.height = y2;
-        
-        //instruction.style = spec.style;
-        instruction.renderFunction = L"line";
-        m_renderQueue.push_back(instruction);
-
-        //pdfWriter.addLine(x1, y1, x2, y2, widthPt, blackColor);
-
-        // Nu este necesar să ne facem griji pentru `pdfWriter.setStrokeWidth` sau 
-        // `pdfWriter.setStrokeColor` deoarece acestea sunt gestionate intern de `addLine`.
-    }
-
-    // TODO: Adaugă suport pentru RtfBorderStyle::Double etc.
-    // Pentru a adăuga stiluri punctate/duble, ar trebui să implementați
-    // o logică complexă de desenare a mai multor linii sau de setare a pattern-ului
-    // de linie (`m_currentPageContext->d()`) înainte de `m_currentPageContext->s()`.
-}
-*/
-
-void RtfToPdfConverter::renderCellBorder(
-    const BorderSpec& spec,
-    double x1, double y1, double x2, double y2)
-{
-    if (spec.isSet() && spec.style == RtfBorderStyle::Single) {
-
-        double widthPt = static_cast<double>(spec.widthTwips) / 20.0;
-        if (widthPt <= 0.0) return;
 
         ColorRgb blackColor = { 0.0, 0.0, 0.0 };
 
         RenderInstruction instruction;
 
-        // 1. Coordonatele Punctului 1 (Start)
-        instruction.x = x1; // Coordonata X1
-        instruction.y = y1; // Coordonata Y1
+        // 1. Punctul de start (X1, Y1)
+        instruction.x = x1;
+        instruction.y = y1;
 
-        // 2. ⭐ Salvarea Proprietăților Liniei în Style
-
-        // Salvează Coordonatele Punctului 2 (End) în boxModel (unde nu sunt folosite)
+        // 2. Punctul de final (X2, Y2) transmis prin câmpurile width și height
         instruction.width = x2;
         instruction.height = y2;
 
-        // Salvează Grosimea și Culoarea liniei
-        instruction.style.boxModel.borderLeftWidth = widthPt; // Folosim un câmp de grosime
+        // 3. Grosimea și culoarea liniei stocate în Style
+        instruction.style.boxModel.borderLeftWidth = widthPt;
         instruction.style.borderColor = blackColor;
 
+        // 4. Tipul instrucțiunii
         instruction.renderFunction = L"line";
 
-        // Asigurați-vă că este setat și numărul paginii curente
-        // instruction.page_number = m_currentPageNumber; 
-
+        // Adăugare în coada paginii curente
         m_renderQueue.push_back(instruction);
     }
 }
 
+
 void RtfToPdfConverter::renderFooter() {
-    // Presupunând că Rtf::getFooterBlocks() returnează this->footerBlocks
     if (m_rtfDocument.getFooterBlocks().empty()) return;
 
     const double TWIPS_PER_POINT = 20.0;
     double marginBottomPt = m_rtfDocument.getPageInfo().getMarginBottomTwips() / TWIPS_PER_POINT;
 
-    // Y de start (sus în jos)
-    double currentFooterY = m_pageHeight - marginBottomPt;
-    currentFooterY -= 5.0; // Micul ajust de 5pt în sus
+    // ⭐ CORECȚIE CRITICĂ: Pozitionăm Y-ul de start al subsolului 
+    // mai sus cu înălțimea totală a blocurilor sale.
+    double footerHeight = getFooterHeight();
+    double currentFooterY = m_pageHeight - marginBottomPt - footerHeight + 5.0;
 
     double originalY = m_currentY;
     m_currentY = currentFooterY;
 
-    // Folosim o înălțime de linie standard (de ex. 8pt, fs16)
     double lineHeight = 8.0 * 1.2;
 
-    // Iterează prin toate blocurile din footer
     for (const auto& block : m_rtfDocument.getFooterBlocks()) {
         double heightConsumed = 0.0;
 
         if (const RtfParagraph* paragraph = dynamic_cast<const RtfParagraph*>(block.get())) {
             heightConsumed = renderFooterParagraph(*paragraph, lineHeight);
-
         }
         else if (const RtfTable* table = dynamic_cast<const RtfTable*>(block.get())) {
-            // ⭐ Aici intră footer-ul cu numărul paginii și data!
-            heightConsumed = renderFooterTable(*table); // Urmează implementarea
-
-        }
-        else {
-            // Bloc necunoscut
+            heightConsumed = renderFooterTable(*table);
         }
 
         m_currentY += heightConsumed;
@@ -1036,23 +1309,20 @@ double RtfToPdfConverter::calculateXOffsetForAlignment(const std::wstring& align
 }
 
 // 💡 Funcția ajutătoare (Placeholder, trebuie implementată de dvs.)
+
+
 std::wstring RtfToPdfConverter::replaceRtfFields(const std::wstring& text, int currentPage, int totalPages) {
     std::wstring result = text;
-    // ... Logica de înlocuire (\chpgn -> currentPage, \field{\*\fldinst NUMPAGES} -> totalPages)
-    // De exemplu:
-    std::size_t pos_chpgn = result.find(L"\\chpgn");
-    if (pos_chpgn != std::wstring::npos) {
-        //LOG_ERROR(L"PADGIIIINI");
-        result.replace(pos_chpgn, 6, std::to_wstring(currentPage));
+
+    // Înlocuim doar \chpgn cu pagina curentă
+    size_t pos = 0;
+    while ((pos = result.find(L"\\chpgn", pos)) != std::wstring::npos) {
+        std::wstring pageStr = std::to_wstring(currentPage);
+        result.replace(pos, 6, pageStr);
+        pos += pageStr.length();
     }
-    // Logica pentru NUMPAGES e mai complexă
-    // Simplificare:
-  
-//    std::size_t pos_num_pages = result.find(L"NUMPAGES");
-//    if (pos_num_pages != std::wstring::npos) {
-//        result.replace(pos_num_pages, 8, std::to_wstring(totalPages));
-//    }
-  
+
+    // ⭐ Nu mai înlocuim \numpages aici! Îl lăsăm intact pentru post-procesare.
     return result;
 }
 
@@ -1145,67 +1415,55 @@ double RtfToPdfConverter::renderFooterParagraph(const RtfParagraph& paragraph, d
 }
 
 
+
 bool RtfToPdfConverter::finalizeAndPaint() {
-
     int current_render_page = 0;
-    /*
-    if (!m_pdfWriter.initialize(outputFilePath, pageWidth, pageHeight)) {
-        LOG_ERROR(L"RtfToPdfConverter::finalizeAndPaint: Eroare la inițializarea PdfWriter.");
-        return false;
-    }
-    */
-   
-
 
     for (const auto& instruction : m_renderQueue) {
-        if (instruction.renderFunction == L"text") {
-            LOG_ERROR(L"DESENEZ textul: \"" + instruction.text_content + L"\" cu coordonatele:X=" +
-                std::to_wstring(instruction.x) + L" Y=" + std::to_wstring(instruction.y));
-             //   L" width=" + std::to_wstring(instruction.width) + L" height=" + std::to_wstring(instruction.height) +
-             //   L" Final X=" + std::to_wstring(instruction.x + instruction.width) + L" Final Y=" + std::to_wstring(instruction.y + instruction.height));
-            //LOG_INFO(L"Page start:" + to_wstring<int>(instruction.element.layout_start_page_index) + L" Page end : "+ to_wstring<int>(instruction.element.layout_end_page_index));
-            //LOG_INFO(L"RuleName:" + instruction.style.ruleName);
-            //LOG_INFO(L"FontFamily:" + instruction.style.fontFamily);
-            //LOG_INFO(L"FontWeight:" + instruction.style.fontWeight);
-            std::wstring final_text_to_draw = instruction.text_content;
-            int page_index_for_substitution = current_render_page;
-            // ----------------------------------------------------
-    // ⭐ Substituția bazată pe vectorul de variabile
-    // ----------------------------------------------------
-            for (const auto& varName : instruction.globalVars) {
-                if (m_globalVarResolvers.count(varName)) {
-
-                    // 1. Obține valoarea finală (string) de la resolver
-                    std::wstring resolvedValue = m_globalVarResolvers.at(varName)(page_index_for_substitution);
-
-                    // 2. Substituie variabila în textul brut
-                    size_t pos = final_text_to_draw.find(varName);
-                    if (pos != std::wstring::npos) {
-                        final_text_to_draw.replace(pos, varName.length(), resolvedValue);
-                    }
-                }
-            }
-
-            m_pdfWriter.addTextWithSyle(instruction.x,
-                instruction.y,
-                final_text_to_draw, instruction.style);
-        }
-        else  if (instruction.renderFunction == L"startPage") {
-            m_pdfWriter.startPage(instruction.width, instruction.height);
+        if (instruction.renderFunction == L"startPage") {
             current_render_page++;
+            m_pdfWriter.startPage(instruction.width, instruction.height);
         }
         else if (instruction.renderFunction == L"endPage") {
             m_pdfWriter.endPage();
         }
+        else if (instruction.renderFunction == L"text") {
+            std::wstring final_text_to_draw = instruction.text_content;
+
+            // 1. Înlocuire token RTF special pentru numărul paginii (\chpgn)
+            size_t chpgnPos = final_text_to_draw.find(L"\\chpgn");
+            if (chpgnPos != std::wstring::npos) {
+                final_text_to_draw.replace(chpgnPos, 7, std::to_wstring(current_render_page));
+            }
+
+            // 2. Substituția variabilelor globale (ex: $operator, page, total, etc.)
+            for (const auto& varName : instruction.globalVars) {
+                auto it = m_globalVarResolvers.find(varName);
+                if (it != m_globalVarResolvers.end()) {
+                    std::wstring resolvedValue = it->second(current_render_page);
+                    size_t pos = 0;
+                    while ((pos = final_text_to_draw.find(varName, pos)) != std::wstring::npos) {
+                        final_text_to_draw.replace(pos, varName.length(), resolvedValue);
+                        pos += resolvedValue.length();
+                    }
+                }
+            }
+
+            LOG_DEBUG(L"[RTF2PDF] Desenez textul: \"" + final_text_to_draw +
+                L"\" la coordonatele: X=" + std::to_wstring(instruction.x) +
+                L", Y=" + std::to_wstring(instruction.y));
+
+            m_pdfWriter.addTextWithSyle(
+                instruction.x,
+                instruction.y,
+                final_text_to_draw,
+                instruction.style
+            );
+        }
         else if (instruction.renderFunction == L"line") {
-            // Citește x2 și y2 din proprietățile boxModel
             double x2 = instruction.width;
             double y2 = instruction.height;
-
-            // Citește grosimea din proprietățile boxModel
             double thickness = instruction.style.boxModel.borderLeftWidth;
-
-            // Citește culoarea din style
             ColorRgb color = instruction.style.borderColor;
 
             m_pdfWriter.addLine(
@@ -1216,17 +1474,11 @@ bool RtfToPdfConverter::finalizeAndPaint() {
                 thickness,
                 color
             );
-          //  m_pdfWriter.addLine(instruction.x, instruction.y, instruction.width, instruction.height, widthPt, blackColor);
         }
     }
 
-    if (!m_pdfWriter.finalize()) {
-        LOG_ERROR(L"RtfToPdfConverter::finalizeAndPaint: Eroare la finalizarea documentului PDF.");
-        return false;
-    }
     return true;
 }
-
 
 void RtfToPdfConverter::initializeGlobalVarResolvers() {
     // Folosim o funcție lambda care captează m_totalPagesCount final
@@ -1261,4 +1513,319 @@ void RtfToPdfConverter::identifyGlobalVars(const std::wstring& text, std::vector
 //    }
 
     // 3. (Adăugați și alte câmpuri globale dacă e necesar: DATE, TIME, etc.)
+}
+
+
+
+
+void RtfToPdfConverter::renderHeader() {
+    if (m_rtfDocument.getHeaderBlocks().empty()) return;
+
+    double currentHeaderY = 15.0; // Marginea de sus a paginii
+    m_currentY = currentHeaderY;
+
+    for (const auto& block : m_rtfDocument.getHeaderBlocks()) {
+        if (!block) continue;
+
+        if (const RtfParagraph* paragraph = dynamic_cast<const RtfParagraph*>(block.get())) {
+            // Adăugăm un mic spațiu (4pt) înainte de paragraf pentru a nu fi lipit de tabelul de sus
+            if (m_currentY > currentHeaderY) {
+                m_currentY += 4.0;
+            }
+
+            double h = renderHeaderParagraph(*paragraph, 0.0);
+
+            // Avansăm cursorul Y cu înălțimea paragrafului + spațiu mic (4pt) până la tabelul următor
+            m_currentY += h + 4.0;
+        }
+        else if (const RtfTable* table = dynamic_cast<const RtfTable*>(block.get())) {
+            renderHeaderTable(*table);
+        }
+    }
+}
+ 
+double RtfToPdfConverter::renderHeaderParagraph(const RtfParagraph& paragraph, double lineHeight) {
+    if (paragraph.spans.empty()) return 0.0;
+
+    auto replaceFields = [this](const std::wstring& str) {
+        return this->replaceRtfFields(str, m_currentPageNumber, m_totalPagesCount);
+    };
+
+    double fontSize = paragraph.style.fontSize > 0 ? paragraph.style.fontSize : 10.0;
+    double actualLineHeight = fontSize * 1.2;
+
+    // Descompunem paragraful în linii logice (pentru a gestiona stilurile mixte \b / \b0 pe aceeași linie)
+    std::vector<ParagraphLine> lines = buildParagraphLines(paragraph, replaceFields);
+    if (lines.empty()) return 0.0;
+
+    double paragraphY = m_currentY;
+
+    for (const auto& line : lines) {
+        // 1. Măsurăm lățimea totală a liniei
+        double totalLineWidth = 0.0;
+        for (const auto& chunk : line.chunks) {
+            if (chunk.text == L"\\t") {
+                totalLineWidth += TAB_WIDTH;
+            }
+            else {
+                totalLineWidth += m_pdfWriter.measureTextWidth(chunk.text, chunk.style);
+            }
+        }
+
+        // 2. Calculăm punctul X de start în funcție de alinierea paragrafului
+        double drawX = calculateLineXStart(
+            paragraph.style.textAlign,
+            m_contentWidth,
+            totalLineWidth,
+            m_marginLeft
+        );
+
+        // ⭐ CORECȚIA CRITICĂ Y-BASELINE:
+        // Coborâm linia de bază cu dimensiunea fontului (fontSize) sub paragraphY
+        double yBaseline = m_pageHeight - paragraphY - fontSize;
+
+        // 3. Deseneăm bucățile de text din linie secvențial
+        for (const auto& chunk : line.chunks) {
+            if (chunk.text == L"\\t") {
+                drawX += TAB_WIDTH;
+                continue;
+            }
+
+            RenderInstruction instruction;
+            instruction.x = drawX;
+            instruction.y = yBaseline;
+            instruction.text_content = chunk.text;
+            instruction.style = chunk.style;
+            instruction.renderFunction = L"text";
+
+            identifyGlobalVars(instruction.text_content, instruction.globalVars);
+            m_renderQueue.push_back(instruction);
+
+            drawX += m_pdfWriter.measureTextWidth(chunk.text, chunk.style);
+        }
+
+        paragraphY += actualLineHeight;
+    }
+
+    return lines.size() * actualLineHeight;
+}
+
+
+static std::vector<std::wstring> splitByLineBreak(const std::wstring& str) {
+    std::vector<std::wstring> lines;
+    std::wstring token = L"$line$";
+    size_t start = 0;
+    size_t end = str.find(token);
+    while (end != std::wstring::npos) {
+        lines.push_back(str.substr(start, end - start));
+        start = end + token.length();
+        end = str.find(token, start);
+    }
+    lines.push_back(str.substr(start));
+    return lines;
+}
+
+
+static std::vector<ParagraphLine> buildParagraphLines(
+    const RtfParagraph& paragraph,
+    const std::function<std::wstring(const std::wstring&)>& textReplacer)
+{
+    std::vector<ParagraphLine> lines;
+    lines.emplace_back(); // Linia inițială
+
+    for (const auto& span : paragraph.spans) {
+        std::wstring text = textReplacer(span.text);
+        std::vector<std::wstring> subStrings = splitByLineBreak(text);
+
+        for (size_t i = 0; i < subStrings.size(); ++i) {
+            if (i > 0) {
+                lines.emplace_back(); // Trecere la o linie nouă cauzată de $line$
+            }
+            if (!subStrings[i].empty()) {
+                lines.back().chunks.push_back({ subStrings[i], span.style });
+            }
+        }
+    }
+    return lines;
+}
+
+double RtfToPdfConverter::renderHeaderTable(const RtfTable& table) {
+    if (table.rows.empty()) return 0.0;
+
+    double totalTableHeight = 0.0;
+
+    // Lambda utilitar pentru substituția câmpurilor RTF
+    auto replaceFields = [this](const std::wstring& str) {
+        return this->replaceRtfFields(str, m_currentPageNumber, m_totalPagesCount);
+    };
+
+    for (size_t r = 0; r < table.rows.size(); ++r) {
+        const RtfRow& row = table.rows[r];
+        double rowStartY = m_currentY;
+
+        // -------------------------------------------------------------
+        // PASUL 1: Calculăm înălțimea maximă a rândului curent (maxRowHeight)
+        // -------------------------------------------------------------
+        double maxRowHeight = 0.0;
+        for (size_t i = 0; i < row.cells.size(); ++i) {
+            const RtfCell& cell = row.cells[i];
+            double cellWidth = (i < table.columnWidthsPt.size())
+                ? (table.columnWidthsPt[i] - (i > 0 ? table.columnWidthsPt[i - 1] : 0.0))
+                : 0.0;
+
+            if (cellWidth <= 0.0) continue;
+
+            double cellContentHeight = 0.0;
+            for (const auto& block : cell.content) {
+                if (const RtfParagraph* paragraph = dynamic_cast<const RtfParagraph*>(block.get())) {
+                    double fontSize = paragraph->style.fontSize > 0 ? paragraph->style.fontSize : 9.0;
+                    double lineHeight = fontSize * 1.2;
+
+                    std::vector<ParagraphLine> lines = buildParagraphLines(*paragraph, replaceFields);
+                    cellContentHeight += lines.size() * lineHeight;
+                }
+            }
+            maxRowHeight = std::max<double>(maxRowHeight, cellContentHeight);
+        }
+
+        double rowH = maxRowHeight > 0.0 ? maxRowHeight : 15.0;
+        double rowEndY = rowStartY + rowH;
+
+        // Coordonatele Y în sistemul PDF (Y=0 jos)
+        double yTop = m_pageHeight - rowStartY;
+        double yBottom = m_pageHeight - rowEndY;
+
+        // -------------------------------------------------------------
+        // PASUL 2: Randăm conținutul și BORDURILE pentru fiecare celulă
+        // -------------------------------------------------------------
+        double currentX = m_marginLeft;
+
+        for (size_t i = 0; i < row.cells.size(); ++i) {
+            const RtfCell& cell = row.cells[i];
+
+            double cellWidth = (i < table.columnWidthsPt.size())
+                ? (table.columnWidthsPt[i] - (i > 0 ? table.columnWidthsPt[i - 1] : 0.0))
+                : 0.0;
+
+            if (cellWidth <= 0.0) continue;
+
+            double xLeft = currentX;
+            double xRight = currentX + cellWidth;
+            double cellY = rowStartY;
+
+            // --- A. Randare Text ---
+            for (const auto& block : cell.content) {
+                if (const RtfParagraph* paragraph = dynamic_cast<const RtfParagraph*>(block.get())) {
+                    double fontSize = paragraph->style.fontSize > 0 ? paragraph->style.fontSize : 9.0;
+                    double lineHeight = fontSize * 1.2;
+
+                    std::vector<ParagraphLine> lines = buildParagraphLines(*paragraph, replaceFields);
+
+                    for (const auto& line : lines) {
+                        // 1. Măsurăm lățimea totală a liniei curente (însumând toate bucățile/span-urile ei)
+                        double totalLineWidth = 0.0;
+                        for (const auto& chunk : line.chunks) {
+                            if (chunk.text == L"\\t") {
+                                totalLineWidth += TAB_WIDTH;
+                            }
+                            else {
+                                totalLineWidth += m_pdfWriter.measureTextWidth(chunk.text, chunk.style);
+                            }
+                        }
+
+                        // 2. Calculeăm X de start pentru întreaga linie în funcție de aliniere (stânga, centru, dreapta)
+                        double drawX = xLeft + calculateXOffsetForAlignment(
+                            paragraph->style.textAlign,
+                            cellWidth,
+                            totalLineWidth
+                        );
+
+                        double yBaseline = m_pageHeight - cellY - fontSize;
+
+                        // 3. Desenăm secvențial bucățile de text din linie
+                        for (const auto& chunk : line.chunks) {
+                            if (chunk.text == L"\\t") {
+                                drawX += TAB_WIDTH;
+                                continue;
+                            }
+
+                            RenderInstruction instruction;
+                            instruction.x = drawX;
+                            instruction.y = yBaseline;
+                            instruction.text_content = chunk.text;
+                            instruction.style = chunk.style;
+                            instruction.renderFunction = L"text";
+
+                            identifyGlobalVars(instruction.text_content, instruction.globalVars);
+                            m_renderQueue.push_back(instruction);
+
+                            // Avansăm X-ul orizontal cu lățimea bucății tocmai desenate
+                            drawX += m_pdfWriter.measureTextWidth(chunk.text, chunk.style);
+                        }
+
+                        // Trecem la linia următoare doar după finalizarea tuturor bucăților din linia curentă
+                        cellY += lineHeight;
+                    }
+                }
+            }
+
+            // --- B. Randare Borduri Celulă ---
+            if (cell.borders.top.isSet()) {
+                renderCellBorder(cell.borders.top, xLeft, yTop, xRight, yTop);
+            }
+            if (cell.borders.bottom.isSet()) {
+                renderCellBorder(cell.borders.bottom, xLeft, yBottom, xRight, yBottom);
+            }
+            if (cell.borders.left.isSet()) {
+                renderCellBorder(cell.borders.left, xLeft, yTop, xLeft, yBottom);
+            }
+            if (cell.borders.right.isSet()) {
+                renderCellBorder(cell.borders.right, xRight, yTop, xRight, yBottom);
+            }
+
+            currentX = xRight;
+        }
+
+        totalTableHeight += rowH;
+        m_currentY += rowH; // Avansăm cursorul Y pentru următorul rând din tabel
+    }
+
+    return totalTableHeight;
+}
+
+
+double RtfToPdfConverter::getFooterHeight() const {
+    const auto& footerBlocks = m_rtfDocument.getFooterBlocks();
+    if (footerBlocks.empty()) return 0.0;
+
+    double totalHeight = 0.0;
+
+    for (const auto& block : footerBlocks) {
+        if (!block) continue;
+
+        if (const RtfParagraph* paragraph = dynamic_cast<const RtfParagraph*>(block.get())) {
+            double fontSize = paragraph->style.fontSize > 0 ? paragraph->style.fontSize : 8.0;
+            totalHeight += fontSize * 1.2;
+        }
+        else if (const RtfTable* table = dynamic_cast<const RtfTable*>(block.get())) {
+            // Un rând de tabel din footer ocupă în general între 12pt și 15pt
+            totalHeight += table->rows.size() * 14.0;
+        }
+    }
+
+    // Adăugăm un buffer de siguranță de 10pt pentru distanțare de corpul paginii
+    return totalHeight > 0.0 ? (totalHeight + 10.0) : 0.0;
+}
+
+void RtfToPdfConverter::finalizePageNumbers() {
+    for (auto& instruction : m_renderQueue) {
+        if (instruction.renderFunction == L"text") {
+            size_t pos = 0;
+            while ((pos = instruction.text_content.find(L"\\numpages", pos)) != std::wstring::npos) {
+                std::wstring totalStr = std::to_wstring(m_totalPagesCount);
+                instruction.text_content.replace(pos, 9, totalStr);
+                pos += totalStr.length();
+            }
+        }
+    }
 }

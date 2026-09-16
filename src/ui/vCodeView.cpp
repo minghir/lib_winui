@@ -25,6 +25,17 @@ extern std::wstring utf8_to_wstring(const std::string& str);
 LRESULT CALLBACK RichEditSubclassProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData) {
     vCodeView* codeView = reinterpret_cast<vCodeView*>(dwRefData);
 
+    if (msg == WM_CONTEXTMENU) {
+        // Obținem coordonatele mouse-ului
+        int xPos = GET_X_LPARAM(lParam);
+        int yPos = GET_Y_LPARAM(lParam);
+
+        if (codeView) {
+            codeView->showContextMenu(xPos, yPos);
+        }
+        return 0; // Prevenim afișarea meniului default de RichEdit
+    }
+
     // Prindem orice mesaj care ar trebui să miște sau să modifice textul
     if (msg == WM_VSCROLL || msg == WM_MOUSEWHEEL || msg == WM_PAINT || msg == WM_CHAR) {
         // Lăsăm mai întâi RichEdit-ul să-și facă scroll-ul intern nativ
@@ -279,7 +290,12 @@ void vCodeView::create(HWND parent)  {
     m_richEdit->setHeightMode(SizeMode::FILL);
     m_richEdit->setWidthMode(SizeMode::FILL);
     m_richEdit->setFontSize(m_fontSize);
-    m_richEdit->setMargins(m_gutterWidth, 0, 0, 0);
+    if (m_visibleGutter) {
+        m_richEdit->setMargins(m_gutterWidth, 0, 0, 0);
+    }
+    else {
+        m_richEdit->setMargins(0, 0, 0, 0);
+    }
 
     this->addChild(m_id + "_edit", std::move(rich));
 
@@ -297,4 +313,57 @@ void vCodeView::create(HWND parent)  {
 
     // Forțăm o primă redesenare curată
     InvalidateRect(this->getHandle(), NULL, TRUE);
+
+    
+}
+
+
+void vCodeView::initContextMenu() {
+    // 🔥 Folosim ID-ul unic al vCodeView pentru a crea un ID unic de meniu
+    std::string uniqueMenuId = "ctx_menu_" + m_id;
+
+    m_contextMenu = std::make_unique<vPopupMenu>(uniqueMenuId, m_dispatcher);
+
+    // Adăugăm itemele
+    m_contextMenu->addItem("ctx_cut_" + m_id, L"Cut");
+    m_contextMenu->addItem("ctx_copy_" + m_id, L"Copy");
+    m_contextMenu->addItem("ctx_paste_" + m_id, L"Paste");
+    m_contextMenu->addSeparator("sep_" + m_id);
+    m_contextMenu->addItem("ctx_delete_" + m_id, L"Delete");
+
+    // Important: creăm meniul
+    m_contextMenu->create(m_handle);
+}
+
+void vCodeView::showContextMenu(int x, int y) {
+    if (!m_contextMenu) return;
+
+    // Afișăm meniul și primim Win32 ID-ul returnat
+    int cmd = m_contextMenu->display(m_handle, x, y);
+    if (cmd == 0) return; // Utilizatorul a dat click în altă parte
+
+    HWND hEdit = m_richEdit->getHandle();
+    SetFocus(hEdit);
+
+    // 🔥 PRELUĂM ID-URILE DINAMIC
+    // Folosim metodele clasei pentru a întreba care este ID-ul numeric 
+    // pentru string-ul nostru de identificare ("ctx_cut", etc.)
+    int idCut = m_contextMenu->getMenuItemId("ctx_cut_" + m_id);
+    int idCopy = m_contextMenu->getMenuItemId("ctx_copy_" + m_id);
+    int idPaste = m_contextMenu->getMenuItemId("ctx_paste_" + m_id);
+    int idDelete = m_contextMenu->getMenuItemId("ctx_delete_" + m_id);
+
+    // Comparăm ID-ul returnat de meniu cu ID-urile noastre
+    if (cmd == idCut) {
+        SendMessage(hEdit, WM_CUT, 0, 0);
+    }
+    else if (cmd == idCopy) {
+        SendMessage(hEdit, WM_COPY, 0, 0);
+    }
+    else if (cmd == idPaste) {
+        SendMessage(hEdit, WM_PASTE, 0, 0);
+    }
+    else if (cmd == idDelete) {
+        SendMessage(hEdit, WM_CLEAR, 0, 0);
+    }
 }

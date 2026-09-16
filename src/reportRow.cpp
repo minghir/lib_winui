@@ -1,9 +1,9 @@
 #include "reportRow.hpp"
 #include "dataSource.hpp"
-//#include "fileUtils.hpp"
 #include "stringUtils.hpp"
 #include "globals.hpp"
 #include "reportFunction.hpp"
+#include "ui/ConsoleManager.hpp"
 
 #include <regex>
 
@@ -191,14 +191,15 @@ std::wstring reportRow::fetch() {
            //std::map<std::string,reportVar> vars_to_count; 
            std::vector<reportRow> rows_to_count;
            int i = 0;
-
+           /*
             if(data_source){
                 //data_source->setDataSourceVarVal(var.first,var.second.getValue());
                 rows_to_count = data_source->getDataRows();
                 for(auto& crow :rows_to_count){
                      std::wstring value_to_count = crow.getVarByName(extractParameter(var.second.getFunction())).getValue(); 
                      if (!is_plain_decimal(value_to_count)) {
-                         value_to_count = normalize_number(value_to_count, 2);
+                         LOG_DEBUG(L"Incerc normalizare:" + value_to_count);
+                             value_to_count = normalize_number(value_to_count, 2);
                      }
                         if(i == 0){
                             var.second.setValue( value_to_count );
@@ -221,6 +222,80 @@ std::wstring reportRow::fetch() {
             }else {
                 std::cout << "Fac agregare pe curent dataset!!!!!!!!!!!!" << std::endl;
             }
+            */
+
+
+           if (data_source) {
+               rows_to_count = data_source->getDataRows();
+
+               std::string paramName;
+               try {
+                   paramName = extractParameter(var.second.getFunction());
+               }
+               catch (const std::exception& e) {
+                   LOG_ERROR(L"[fetch] Expresie sum() invalidă: " + str_to_wstr(var.second.getFunction()));
+                   paramName = "";
+               }
+
+               if (!paramName.empty()) {
+                   for (auto& crow : rows_to_count) {
+                       std::wstring value_to_count = L"0";
+
+                       // Extragere sigură a variabilei din rând
+                       try {
+                           value_to_count = crow.getVarByName(paramName).getValue();
+                       }
+                       catch (...) {
+                           LOG_ERROR(L"[fetch] Variabila '" + str_to_wstr(paramName) + L"' nu a fost găsită în rândul curent.");
+                       }
+
+                       // Normalizare dacă este cazul
+                       if (value_to_count.empty()) {
+                           value_to_count = L"0.00";
+                       }
+                       else if (!is_plain_decimal(value_to_count)) {
+                           LOG_DEBUG(L"Incerc normalizare: " + value_to_count);
+                           value_to_count = normalize_number(value_to_count, 2);
+                       }
+
+                       // Conversie sigură la long double pentru adunare
+                       long double current_val = 0.0;
+                       try {
+                           current_val = std::stold(value_to_count);
+                       }
+                       catch (...) {
+                           current_val = 0.0;
+                       }
+
+                       if (i == 0) {
+                           var.second.setValue(to_wstring_precise(current_val, 2));
+                       }
+                       else {
+                           long double old_value = 0.0;
+                           try {
+                               old_value = std::stold(var.second.getValue());
+                           }
+                           catch (...) {
+                               old_value = 0.0;
+                           }
+
+                           long double new_value = old_value + current_val;
+                           std::wstring n_val = to_wstring_precise(new_value, 2);
+
+                           if (!is_plain_decimal(n_val)) {
+                               n_val = normalize_number(n_val, 2);
+                           }
+
+                           var.second.setValue(n_val);
+                       }
+
+                       i++;
+                   }
+               }
+           }
+           else {
+               std::cout << "Fac agregare pe curent dataset!!!!!!!!!!!!" << std::endl;
+           }
 
             getTemplateByName(tpl_file)->assign(str_to_wstr(var.second.getTplName()),var.second.getValue());
        }

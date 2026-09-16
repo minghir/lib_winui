@@ -1,0 +1,376 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<vXmlDialog name="dialogUtilizatori" title="Editare utilizatori" WindowType="DialogWindow" LayoutStrategy="VerticalStackLayout" x="100" y="100" width="1024" height="768" minWidth="600" minHeight="400"  background="#ADC7C9" font="test1" >
+<font name="test2" faceName="Arial"  height="12" weight="normal" italic="false" underline="false" strikeout="false" />
+<font name="test3" faceName="Arial"  height="14" weight="bold" italic="true" underline="false" strikeout="false" />
+<font name="test1" faceName="Arial Narrow"  height="20" weight="bold" italic="false" underline="false" strikeout="false" />
+			<vControl 
+				name="labelNumePrenume" 
+				type="vLabel" 
+				widthMode="FIXED" 
+				heightMode="FIXWD" 
+				anchor="LEFT-TOP" 
+				x="0" y="0" 
+				width="300" height="45"
+				gridRow="0" gridColumn="0"  
+				marginLeft="0" marginTop="0" marginRight="0" marginBottom="0" 
+				background="#ffffff"
+				font="test1">
+				<text>Nume prenume:</text>
+			</vControl>
+			<vControl 
+				name="editNumePrenume" 
+				type="vEdit" 
+				widthMode="FIXED" 
+				heightMode="FIXED" 
+				anchor="LEFT-CENTER_H"
+				x="824" y="0" 
+				width="200" height="25"
+				gridRow="0" gridColumn="0"  
+				marginLeft="0" marginTop="0" marginRight="0" marginBottom="0" 
+				background="#ffffff"
+				enabled="false"
+				font="test2">
+				<default_text>Nume prenume default</default_text>
+				<attribute name="readOnly" value="true" /> 
+			
+			</vControl>
+			
+			
+			<vContainer 
+				name="adresPanel" 
+				type="vPanel"
+				LayoutStrategy="VerticalStackLayout" 
+				widthMode="FILL" 
+				heightMode="FIXED" 
+				anchor="LEFT-TOP" 
+				x="0" y="45" 
+				width="100" height="425" 
+				tooltipText="" 
+				gridRow="0" gridColumn="0"  
+				marginLeft="0" marginTop="0" marginRight="0" marginBottom="0" 
+				background="#1F692A"
+				textColor="#ffffff"
+				font="test1">
+					<vControl 
+						name="labelAdresa" 
+						type="vLabel" 
+						widthMode="FIXED" 
+						heightMode="FIXED" 
+						anchor="LEFT-TOP" 
+						x="0" y="0" 
+						width="100" height="25"
+						gridRow="0" gridColumn="0"  
+						marginLeft="0" marginTop="0" marginRight="0" marginBottom="0" 
+						textAlign="RIGHT-BOTTOM"
+						background="#7F518C"
+						font="test2">
+						<text>Adresa:</text>
+					</vControl>
+					<vControl 
+						name="editAdresa" 
+						type="vEdit" 
+						widthMode="FIXED" 
+						heightMode="FIXED" 
+						anchor="RIGHT-MIDDLE" 
+						x="100" y="0" 
+						width="100" height="25"
+						gridRow="0" gridColumn="0"  
+						marginLeft="0" marginTop="0" marginRight="0" marginBottom="0" 
+						background="#ffffff"
+						textColor="#000000"
+						font="test2">
+						<default_text>Adresa</default_text>
+						<!-- <handler name="lost_focus" function="onMimi"/> -->
+						<validation pattern="^[A-Za-z]+$" error="Adresa trebuie sa contina doar litere!"/>
+						<handler name="lost_focus" function="validateAdress" />
+					</vControl>
+					
+					<vControl 
+						name="labelAdresa2" 
+						type="vLabel" 
+						widthMode="FIXED" 
+						heightMode="FIXED" 
+						anchor="RIGHT-MIDDLE" 
+						x="0" y="35" 
+						width="100" height="25"
+						gridRow="0" gridColumn="0"  
+						marginLeft="0" marginTop="0" marginRight="0" marginBottom="0" 
+						textAlign="RIGHT-BOTTOM"
+						background="#7F518C"
+						font="test2">
+						<text>Adresa2:</text>
+					</vControl>
+					<vControl 
+						name="editAdresa2" 
+						type="vComboBox" 
+						widthMode="FIXED" 
+						heightMode="FIXED" 
+						anchor="RIGHT-MIDDLE" 
+						x="101" y="35" 
+						width="100" height="25"
+						gridRow="0" gridColumn="0"  
+						marginLeft="0" marginTop="0" marginRight="0" marginBottom="0" 
+						background="#ffffff"
+						textColor="#1E37D9"
+						font="test2">
+							<item>Optiunea 1</item>
+							<item selected="true">Optiunea 2 (Implicită)</item>
+							<item>Optiunea 3</item>
+							<handler name="selectionChange" function="testComboBox" />
+					</vControl>
+					<vControl 
+						name="editAdresa4" 
+						type="vCheckBox" 
+						widthMode="FIXED" 
+						heightMode="FIXED" 
+						anchor="RIGHT-MIDDLE" 
+						x="220" y="35" 
+						width="100" height="25"
+						gridRow="0" gridColumn="0"  
+						marginLeft="0" marginTop="0" marginRight="0" marginBottom="0" 
+						background="#ffffff"
+						textColor="#1E37D9"
+						selected="true"
+						font="test2">
+						<text>de control</text>
+							<handler name="click" function="testComboBox" />
+					</vControl>
+					<vControl 
+						name="editData" 
+						type="vDatePicker" 
+						widthMode="FIXED" 
+						heightMode="FIXED" 
+						anchor="RIGHT-MIDDLE" 
+						x="360" y="35" 
+						width="150" height="25"
+						gridRow="0" gridColumn="0"  
+						marginLeft="0" marginTop="0" marginRight="0" marginBottom="0" 
+						background="#ffffff"
+						textColor="#1E37D9"
+						font="test2">
+						<handler name="dateChange" function="testComboBox" />
+						<attribute name="dateFormat" value="dd.MM.yyyy" />
+					</vControl>
+					<vContainer 
+						name="adresGrup" 
+						type="vPanelGroup"
+						LayoutStrategy="AnchorLayout" 
+						widthMode="FIXED" 
+						heightMode="FIXED" 
+						anchor="LEFT-BOTTOM" 
+						x="0" y="205" 
+						width="300" height="200" 
+						tooltipText="" 
+						gridRow="0" gridColumn="0"  
+						marginLeft="20" marginTop="0" marginRight="0" marginBottom="0" 
+						background="#2B092B"
+						textColor="#F7D2F7"
+						font="test1">
+						<text> vPanel Grup 1 de test</text>
+						<attribute name="borderColor" value="#FF0000" />
+							<vContainer 
+								name="radioData" 
+								type="vRadioGroup" 
+								LayoutStrategy="VerticalStackLayout"
+								widthMode="FIXED" 
+								heightMode="FIXED" 
+								anchor="RIGHT-MIDDLE" 
+								x="10" y="25" 
+								width="150" height="165"
+								gridRow="0" gridColumn="0"  
+								marginLeft="0" marginTop="20" marginRight="0" marginBottom="0" 
+								background="#ffffff"
+								textColor="#1E37D9"
+								font="test3"
+								dbColumn="MOD_PLATA">
+									<text>Alege metoda:</text>
+									<vControl name="opt1" type="vRadioButton" x="10" y="30" width="100" height="20" font="test3">
+										<text>Card Bancar</text>
+									</vControl>
+									<vControl name="opt2" type="vRadioButton" selected="true" x="10" y="50" width="100" height="20" font="test3">
+										<text>Cash</text>
+									</vControl>
+									<vControl name="opt3" type="vRadioButton" x="10" y="70" width="100" height="20" font="test3">
+										<text>Acord</text>
+									</vControl>
+									<vControl name="opt4" type="vRadioButton" x="10" y="90" width="100" height="20" font="test3">
+										<text>Exclus</text>
+									</vControl>
+							</vContainer>
+					</vContainer>
+					
+			</vContainer>
+				<vContainer 
+						name="actGrup" 
+						type="vPanel"
+						LayoutStrategy="AnchorLayout" 
+						widthMode="FILL" 
+						heightMode="FIXED" 
+						anchor="LEFT-TOP" 
+						x="0" y="605" 
+						width="100" height="55" 
+						tooltipText="" 
+						gridRow="0" gridColumn="0"  
+						marginLeft="0" marginTop="0" marginRight="0" marginBottom="0" 
+						background="#ADC700"
+						font="test2">
+						<text> Actiuni </text>
+					
+					<vControl 
+						name="buttonOK" 
+						type="vButton" 
+						widthMode="FIXED" 
+						heightMode="FIXED" 
+						anchor="LEFT-BOTTOM" 
+						x="100" y="10" 
+						width="45" height="25"
+						gridRow="0" gridColumn="0"  
+						marginLeft="0" marginTop="0" marginRight="0" marginBottom="0" 
+						background="#ffffff"
+						textColor="#6A7012"
+						font="test3">
+						<text>&OK</text>
+						<handler name="click" function="onOK"/>
+					</vControl>
+					<vControl 
+						name="buttonCancel" 
+						type="vButton" 
+						widthMode="FIXED" 
+						heightMode="FIXED" 
+						anchor="RIGHT-BOTTOM" 
+						x="150" y="10" 
+						width="75" height="25"
+						gridRow="0" gridColumn="0"  
+						marginLeft="0" marginTop="0" marginRight="0" marginBottom="0" 
+						background="#6A7012"
+						textColor="#E3122C"
+						font="test2">
+						<text>&Cancel</text>
+						<handler name="click" function="onCancel"/>
+					</vControl>
+					<vControl 
+						name="buttonTest" 
+						type="vButton" 
+						widthMode="FIXED" 
+						heightMode="FIXED" 
+						anchor="RIGHT-BOTTOM" 
+						x="250" y="10" 
+						width="75" height="25"
+						gridRow="0" gridColumn="0"  
+						marginLeft="0" marginTop="0" marginRight="0" marginBottom="0" 
+						background="#6A7012"
+						textColor="#E3122C"
+						font="test2">
+						<text>&Test</text>
+						<handler name="click" function="onTest"/>
+					</vControl>
+					<vControl 
+						name="editDataTT" 
+						type="vDbGridPicker" 
+						widthMode="FIXED" 
+						heightMode="FIXED" 
+						anchor="RIGHT-MIDDLE" 
+						x="460" y="35" 
+						width="200" height="25"
+						gridRow="0" gridColumn="0"  
+						marginLeft="10" marginTop="10" marginRight="10" marginBottom="10" 
+						background="#999999"
+						textColor="#00FF00"
+						font="test3"
+						>
+						<attribute name="targetQuery" value="select registration from date_aviatie.fleet" />
+						<attribute name="returnColumn" value="registration" />
+						<text>MIMI</text>
+					</vControl>
+			</vContainer>
+<!--
+	<vContainer 
+		name="mainPanel" 
+		type="vPanel"
+		LayoutStrategy="AnchorLayout" 
+		widthMode="FILL" 
+		heightMode="FILL" 
+		anchor="LEFT-TOP" 
+		x="0" y="0" 
+		width="1024" height="768" 
+		tooltipText="" 
+		gridRow="0" gridColumn="0"  
+		marginLeft="0" marginTop="0" marginRight="0" marginBottom="0" 
+		background="#222222"
+		textColor="#000000"
+		font="test1">
+			<vControl 
+				name="labelNumePrenume" 
+				type="vLabel" 
+				widthMode="FIXED" 
+				heightMode="FIXED" 
+				anchor="LEFT-TOP" 
+				x="0" y="0" 
+				width="300" height="45"
+				gridRow="0" gridColumn="0"  
+				marginLeft="0" marginTop="0" marginRight="0" marginBottom="0" 
+				textColor="#ffffff"
+				font="test2">
+				<text>Nume prenume:</text>
+			</vControl>
+			<vControl 
+				name="editNumePrenume" 
+				type="vEdit" 
+				widthMode="FIXED" 
+				heightMode="FIXED" 
+				anchor="LEFT" 
+				x="0" y="0" 
+				width="100" height="30"
+				gridRow="0" gridColumn="0"  
+				background="#ffffff"
+				marginLeft="0" marginTop="0" marginRight="0" marginBottom="0" 
+				
+				font="test2">
+				<default_text>Nume prenume:</default_text>
+			</vControl>
+			<vContainer 
+				name="adresPanel" 
+				type="vPanel"
+				LayoutStrategy="AnchorLayout" 
+				widthMode="FILL" 
+				heightMode="FIXED" 
+				anchor="LEFT-TOP" 
+				x="100" y="100" 
+				width="100" height="200" 
+				tooltipText="" 
+				gridRow="0" gridColumn="0"  
+				marginLeft="0" marginTop="0" marginRight="0" marginBottom="0" 
+				background="#666666"
+				textColor="#ffffff"
+				font="test1">
+					<vControl 
+						name="labelAdresa" 
+						type="vLabel" 
+						widthMode="FIXED" 
+						heightMode="FIXED" 
+						anchor="LEFT-TOP" 
+						x="0" y="0" 
+						width="100" height="30"
+						gridRow="0" gridColumn="0"  
+						marginLeft="0" marginTop="0" marginRight="0" marginBottom="0" 
+						font="test2">
+						<text>Adresa:</text>
+					</vControl>
+					<vControl 
+						name="editAdresa" 
+						type="vEdit" 
+						widthMode="FIXED" 
+						heightMode="FIXED" 
+						anchor="LEFT-TOP" 
+						x="0" y="0" 
+						width="100" height="30"
+						gridRow="0" gridColumn="0"  
+						marginLeft="0" marginTop="0" marginRight="0" marginBottom="0" 
+						background="#ffffff"
+						font="test1">
+						<default_text>Adresa</default_text>
+					</vControl>
+			</vContainer>
+	</vContainer>
+	-->
+</vXmlDialog>

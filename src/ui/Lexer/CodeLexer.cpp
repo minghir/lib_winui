@@ -50,7 +50,7 @@ bool CodeLexer::loadLanguageFile(const std::string& path) {
                 if (!lang->caseSensitive) std::transform(word.begin(), word.end(), word.begin(), ::towlower);
                 s.words.insert(word);
             }
-            lang->keywordStyle = s;
+            lang->keywordStyles.push_back(s);
         }
         else if (id == "number") {
             s.isNumber = true;
@@ -109,23 +109,76 @@ void CodeLexer::highlight(vRichEdit* editor) {
 
         if (matchedBlock) continue;
 
-        // Logica de cuvinte (Keywords/Numbers)
-        if (iswalnum(text[i]) || text[i] == L'_' || text[i] == L'$') {
-            size_t start = i;
-            while (i < text.length() && (iswalnum(text[i]) || text[i] == L'_' || text[i] == L'$')) i++;
+        // --- Keyword patterns (multiple styles) ---
+        for (const auto& ks : m_currentLang->keywordStyles) {
+            for (const auto& kw : ks.words) {
+                size_t kwLen = kw.length();
+                if (kwLen == 0) continue;
 
-            std::wstring word = text.substr(start, i - start);
-            if (iswdigit(word[0])) {
-                editor->setTextColorRange((int)start, (int)i, m_currentLang->numberStyle.color, m_currentLang->numberStyle.bold);
-            }
-            else {
-                if (!m_currentLang->caseSensitive) std::transform(word.begin(), word.end(), word.begin(), ::towlower);
-                if (m_currentLang->keywordStyle.words.count(word)) {
-                    editor->setTextColorRange((int)start, (int)i, m_currentLang->keywordStyle.color, m_currentLang->keywordStyle.bold);
+                if (i + kwLen <= text.length() &&
+                    text.compare(i, kwLen, kw) == 0) {
+
+                    editor->setTextColorRange(
+                        (int)i,
+                        (int)(i + kwLen),
+                        ks.color,
+                        ks.bold
+                    );
+
+                    i += kwLen;
+                    matchedBlock = true;
+                    break;
                 }
             }
+            if (matchedBlock) break;
+        }
+        if (matchedBlock) continue;
+
+
+        // --- Logica de cuvinte (Keywords/Numbers) ---
+        if (iswalnum(text[i]) || text[i] == L'_' || text[i] == L'$') {
+
+            size_t start = i;
+            while (i < text.length() &&
+                (iswalnum(text[i]) || text[i] == L'_' || text[i] == L'$'))
+            {
+                i++;
+            }
+
+            std::wstring word = text.substr(start, i - start);
+
+            // --- NUMERE ---
+            if (iswdigit(word[0])) {
+                editor->setTextColorRange(
+                    (int)start, (int)i,
+                    m_currentLang->numberStyle.color,
+                    m_currentLang->numberStyle.bold
+                );
+                continue;
+            }
+
+            // --- CUVINTE CHEIE (multiple stiluri) ---
+            for (const auto& ks : m_currentLang->keywordStyles) {
+
+                std::wstring w = word;
+
+                if (!m_currentLang->caseSensitive)
+                    std::transform(w.begin(), w.end(), w.begin(), ::towlower);
+
+                if (ks.words.count(w)) {
+                    editor->setTextColorRange(
+                        (int)start, (int)i,
+                        ks.color,
+                        ks.bold
+                    );
+                    break;
+                }
+            }
+
             continue;
         }
+
+        
         i++;
     }
     editor->unfreeze();
@@ -179,4 +232,17 @@ void CodeLexer::loadSyntaxes(const std::string& folderPath) {
     catch (const fs::filesystem_error& e) {
         // LOG_ERROR(L"[CodeLexer] Eroare sistem la scanarea folderului: " + str_to_wstr(e.what()));
     }
+}
+
+void CodeLexer::setCurrentLang(const std::wstring& name) {
+    
+    // 2. Căutăm după extensie (ex: ".ats")
+    auto it2 = m_extMap.find(name);
+    if (it2 != m_extMap.end()) {
+        m_currentLang = it2->second;
+        return;
+    }
+
+    // 3. Nimic găsit
+    m_currentLang = nullptr;
 }

@@ -122,33 +122,15 @@ bool vContainer::routeMessageToChild(int controlId, UINT msg, WPARAM wParam, LPA
     return false;
 }
 
-/*
-void vContainer::scale(int newDpi) {
-    // 1. Scalează panelul/containerul curent
-    vControl::scale(newDpi);
-
-    // 2. Propagă la copii
-    for (auto& pair : m_children) {
-        vControl* child = pair.second.get();
-        if (child) {
-            //LOG_ERROR(L"PROPAGARE: Trimit scale la " + str_to_wstr(child->getId()));
-            child->scale(newDpi);
-            //child->scaleFont(newDpi);
-        }
-         // scale se propaga la copii nu trebuie tratat diferit    
-        //vContainer* containerChild = dynamic_cast<vContainer*>(child);
-        //if (containerChild) {    }
-    }
-
-    // 3. Re-aliniază copiii conform layout-ului
-    applyLayout();
-}
-*/
 
 void vContainer::scale(int newDpi) {
+    // Activăm scutul: WM_SIZE va fi ignorat complet la repoziționare în acest interval
+    s_isScaling = true;
     // 1. Apelăm logica de bază din vControl.
     // Aceasta va scala dimensiunile containerului ȘI va propaga scalarea la copii recursiv.
     vControl::scale(newDpi);
+
+    s_isScaling = false; // Dezactivăm scutul
 
     // 2. RE-ALINIEREA: Aceasta trebuie să se întâmple o SINGURĂ dată, 
     // după ce tot arborele de sub acest container și-a actualizat dimensiunile interne.
@@ -230,10 +212,12 @@ LRESULT vContainer::handleMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
                    // Exemplu: WM_SIZE (pentru a rearanja copiii la redimensionare), WM_NOTIFY etc.
 
     case WM_SIZE: {
-        applyLayout();
+        if (!s_isScaling) {
+            applyLayout();
+        }
         return 0;
     }
-
+    /*
     case WM_CTLCOLORSTATIC:
     case WM_CTLCOLORLISTBOX:{
         HDC hdc = (HDC)wParam;
@@ -270,6 +254,57 @@ LRESULT vContainer::handleMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
             }
         }
 
+        break;
+    }
+    */
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLOREDIT:
+    case WM_CTLCOLORLISTBOX: {
+        HDC hdc = (HDC)wParam;
+        HWND hCtrl = (HWND)lParam;
+
+        // Căutăm direct controlul copil prin HWND-ul său real
+        for (auto& [id, child] : m_children) {
+            vControl* raw = child.get();
+
+            if (!raw || raw->getHandle() != hCtrl)
+                continue;
+
+            // --- FIX CRITIC PENTRU TOATE CONTROALELE (INCLUSIV LABELS BOLD) ---
+            // Forțăm selectarea fontului scalat direct în HDC-ul de randare necondiționat!
+            SelectObject(hdc, raw->getEffectiveFont());
+            SetTextColor(hdc, raw->getEffectiveTextColor());
+
+            // Spacer debug
+            if (raw->isSpacer() && vSpacer::s_debugMode) {
+                static HBRUSH hSpacerBrush = CreateSolidBrush(RGB(255, 182, 193));
+                SetBkColor(hdc, RGB(255, 182, 193));
+                return (LRESULT)hSpacerBrush;
+            }
+
+            // ComboBox
+            if (raw->getType() == ControlType::Combobox) {
+                vComboBox* combo = static_cast<vComboBox*>(raw);
+                SetBkColor(hdc, combo->getBackgroundColor());
+
+                static HBRUSH hComboBrush = nullptr;
+                if (hComboBrush) DeleteObject(hComboBrush);
+                hComboBrush = CreateSolidBrush(combo->getBackgroundColor());
+                return (LRESULT)hComboBrush;
+            }
+
+            // Gestionare fundal standard (Label, Edit etc.)
+            HBRUSH hBr = raw->getEffectiveBackgroundBrush();
+            if (hBr) {
+                SetBkMode(hdc, OPAQUE);
+                SetBkColor(hdc, raw->getEffectiveBackgroundColor());
+                return (LRESULT)hBr;
+            }
+            else {
+                SetBkMode(hdc, TRANSPARENT);
+                return (LRESULT)GetStockObject(NULL_BRUSH);
+            }
+        }
         break;
     }
     case WM_DRAWITEM: {

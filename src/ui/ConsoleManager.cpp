@@ -1,57 +1,11 @@
 ﻿#include "ConsoleManager.hpp"
 #include "../stringUtils.hpp"
-#include <fcntl.h> // Pentru _O_U8TEXT
-#include <io.h>    // Pentru _fileno
+#include <fcntl.h>
+#include <io.h>
 #include <codecvt>
 #include <locale>
 #include <filesystem>
 #include <sstream>
-
-
-/*
-// --- Implementarea metodei initialize ---
-void ConsoleManager::initialize() {
-    // Alocă o nouă consolă pentru procesul curent.
-    // Necesare pentru ca o aplicație GUI să aibă o consolă vizibilă.
-    AllocConsole();
-
-    // Setează codificarea de ieșire a consolei la UTF-8.
-    // Crucial pentru afișarea corectă a caracterelor Unicode și diacriticelor.
-    SetConsoleOutputCP(CP_UTF8);
-
-    // Redirecționează stream-urile standard C (`stdout`, `stderr`, `stdin`) către noua consolă.
-    // Fără aceste apeluri, std::cout/cerr/cin nu ar funcționa în consola nouă.
-    FILE* stream;
-    freopen_s(&stream, "CONOUT$", "w", stdout); // Ieșire standard
-    freopen_s(&stream, "CONOUT$", "w", stderr); // Ieșire erori
-    freopen_s(&stream, "CONIN$", "r", stdin);   // Intrare standard
-
-    // Sincronizează stream-urile C++ cu stream-urile C.
-    // Aceasta asigură că funcțiile `freopen_s` afectează și `std::wcout`/`std::cout`.
-    std::ios::sync_with_stdio(true);
-
-    // Setează modul pentru `stdout` la UTF-8 text.
-    // Important pentru ca `std::wcout` să afișeze corect caracterele late (wide characters).
-    _setmode(_fileno(stdout), _O_U8TEXT);
-
-    // Curăță orice erori de stare anterioare ale stream-urilor C++.
-    std::cout.clear();
-    std::cerr.clear();
-
-    // Inhiba pierderea focusului ferestreu orincipale
-    
-    //HANDLE hInput = GetStdHandle(STD_INPUT_HANDLE);
-    //DWORD dwMode;
-    //if (GetConsoleMode(hInput, &dwMode)) {
-        //dwMode &= ~(ENABLE_QUICK_EDIT_MODE);
-        //SetConsoleMode(hInput, dwMode);
-    //}
-    
-    // Rulează un test rapid pentru a verifica funcționalitatea logării și a diacriticelor.
-    //logTest();
-    //log(L"Consola a fost inițializată cu succes și este gata de utilizare.");
-}
-*/
 
 void ConsoleManager::initialize() {
     AllocConsole();
@@ -65,94 +19,48 @@ void ConsoleManager::initialize() {
     std::ios::sync_with_stdio(true);
     _setmode(_fileno(stdout), _O_U8TEXT);
 
-    // --- ACTIVARE MOD ANSI (Virtual Terminal) ---
     HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
     if (hOut != INVALID_HANDLE_VALUE) {
         DWORD dwMode = 0;
         if (GetConsoleMode(hOut, &dwMode)) {
-            // ENABLE_VIRTUAL_TERMINAL_PROCESSING = 0x0004
-            dwMode |= 0x0004;
+            dwMode |= 0x0004; // ENABLE_VIRTUAL_TERMINAL_PROCESSING
             SetConsoleMode(hOut, dwMode);
         }
     }
-    // --------------------------------------------
 
     std::cout.clear();
     std::cerr.clear();
 }
 
-/*
-void ConsoleManager::initialize() {
-    // 1. Încercăm atașarea sau alocarea
-    if (!AttachConsole(ATTACH_PARENT_PROCESS)) {
-        AllocConsole();
-    }
-
-    // 2. Redirecționăm stream-urile standard
-    FILE* fDummy;
-    freopen_s(&fDummy, "CONOUT$", "w", stdout);
-    freopen_s(&fDummy, "CONOUT$", "w", stderr);
-    freopen_s(&fDummy, "CONIN$", "r", stdin);
-
-    // 3. Sincronizăm stream-urile C++
-    std::ios::sync_with_stdio(true);
-
-    // 4. SOLUȚIA PENTRU LITERE SPAȚIATE:
-    // Folosim U16TEXT pentru wcout. NU mai apela SetConsoleOutputCP aici.
-    _setmode(_fileno(stdout), _O_U16TEXT);
-    _setmode(_fileno(stderr), _O_U16TEXT);
-
-    std::wcout.clear();
-
-    // Testăm imediat
-    logTest();
-    log(L"Consola a fost inițializată în mod Unicode Nativ.");
-}
-*/
-// --- Implementarea metodei setColor ---
 void ConsoleManager::setColor(WORD color) {
-    // Obține handle-ul de ieșire al consolei și setează atributele de culoare.
-    // Dacă ai activat mutex-ul pentru thread-safety, blochează-l aici.
-    // std::lock_guard<std::mutex> lock(mtxLog);
     SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), color);
 }
 
-// --- Implementarea metodei resetColor ---
 void ConsoleManager::resetColor() {
-    // Resetează culoarea la alb standard (combinația de roșu, verde, albastru).
     setColor(FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
 }
 
-/*
-// --- Implementarea metodei log ---
-void ConsoleManager::getInstance().log(const std::wstring& message) {
-    // Pentru thread-safety, decomentează linia de mai jos:
-    // std::lock_guard<std::mutex> lock(mtxLog);
-    //if (message.find(L"ERROR") == std::wstring::npos) return;
-
-    std::wcout << L"[LOG] " << message << std::endl;
-
-}
-*/
-
-// Funcție ajutătoare pentru a obține prefixul și culoarea
 void ConsoleManager::log(const std::wstring& message, LogLevel level) {
-    std::lock_guard<std::recursive_mutex> lock(mtxLog); // Decomentează pentru thread-safety
+    std::lock_guard<std::recursive_mutex> lock(mtxLog);
 
-    // GARDA: Dacă logarea este suspendată, ieșim imediat
+    // 1. GARDA Numarul 1: Dacă logarea este suspendată general
     if (m_isSuspended) return;
 
+    // --- MODIFICARE 3: FILTRAREA DUPĂ NIVEL ---
+    // Dacă mesajul are un nivel mai mic decât nivelul permis curent, îl ignorăm
+    if (static_cast<int>(level) < static_cast<int>(m_currentLogLevel)) {
+        return;
+    }
+
     if (std::wcout.fail()) {
-        std::wcout.clear(); // Resetează starea stream-ului dacă a "crăpat" anterior
+        std::wcout.clear();
     }
 
     std::wstring prefix = L"[LOG]";
-    WORD color = FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE; // Alb (default)
-    bool isError = false; // Flag pentru a ști dacă trebuie să trimitem la stderr sau să folosim log-ul de erori
+    WORD color = FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE;
 
     switch (level) {
     case LogLevel::INFO:
-        //return;
         prefix = L"[INFO]";
         break;
 
@@ -169,45 +77,35 @@ void ConsoleManager::log(const std::wstring& message, LogLevel level) {
     case LogLevel::LOG_ERROR:
         prefix = L"[ERROR]";
         color = FOREGROUND_RED | FOREGROUND_INTENSITY;
-        isError = true;
         break;
 
     case LogLevel::FATAL_ERROR:
         prefix = L"[FATAL_ERROR]";
-        color = BACKGROUND_RED | FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | FOREGROUND_INTENSITY; // Roșu intens pe fond roșu
-        isError = true;
+        color = BACKGROUND_RED | FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | FOREGROUND_INTENSITY;
         break;
 
     case LogLevel::DEBUG:
-       // return;
         prefix = L"[DEBUG]";
-        color = FOREGROUND_BLUE | FOREGROUND_INTENSITY; // Albastru deschis
+        color = FOREGROUND_BLUE | FOREGROUND_INTENSITY;
         break;
     }
 
     std::wstring timestamp = getTimestamp();
 
-    // Aplică culoarea
+    // Afișare consolă
     setColor(color);
-
-    // Afișează mesajul
     std::wcout << prefix << L" " << message << std::endl;
-
-    // Resetează culoarea la cea implicită
     resetColor();
 
-    // 2. Pregătim și scriem mesajul pentru Fișier (UTF-8)
+    // Scrierea în fișier (dacă este activat)
     if (logToFileEnabled && !fileLoggingMuted && logFile.is_open()) {
         std::wstring fullWideMessage = L"[" + timestamp + L"] " + prefix + L" " + message;
-
-        // Folosim funcția ta salvatoare!
         std::string utf8Message = utf8_encode(fullWideMessage);
-
         logFile << utf8Message << std::endl;
         logFile.flush();
-      
     }
 
+    // Trimitere către alte output-uri (UI, ferestre etc.)
     for (size_t i = 0; i < m_extraOutputs.size(); ++i) {
         if (m_extraOutputs[i]) {
             m_extraOutputs[i]->writeLog(message, level);
@@ -215,10 +113,6 @@ void ConsoleManager::log(const std::wstring& message, LogLevel level) {
     }
 }
 
-
-
-
-// --- Implementarea metodei logTest ---
 void ConsoleManager::logTest() {
     std::wcout << L"[TEST] Verificare diacritice în consolă: ș ț ă â î" << std::endl;
     std::wcout << L"[TEST] Această linie ar trebui să apară albă." << std::endl;
@@ -232,41 +126,20 @@ void ConsoleManager::logTest() {
     std::wcout << L"[TEST] Culoarea a fost resetată la alb." << std::endl;
 }
 
-// --- Implementarea metodei shutdown (Opțional) ---
-
 void ConsoleManager::shutdown() {
-    // Pentru a elibera consola, trebuie să redirecționezi stream-urile înapoi
-    // sau să le închizi înainte de a apela FreeConsole().
-    // Aceasta este o operație mai complexă și adesea nu este necesară
-    // deoarece consola este închisă automat la terminarea procesului.
-    // Dacă ai nevoie, caută exemple detaliate de FreeConsole() și redirecționare.
-    // FreeConsole();
-    log(L"Consola a fost închisă (dacă FreeConsole() a fost apelat).");
+    log(L"Consola a fost închisă.");
 }
 
-/*
-void ConsoleManager::writeRaw(const std::wstring& message, WORD color) {
-    std::lock_guard<std::recursive_mutex> lock(mtxLog);
-    if (color != 0) setColor(color);
-    std::wcout << message << std::endl;
-    if (color != 0) resetColor();
-}
-*/
 void ConsoleManager::writeRaw(const std::wstring& message, WORD color) {
     std::lock_guard<std::recursive_mutex> lock(mtxLog);
 
-    // GARDA: Opțional, poți suspenda și mesajele RAW
     if (m_isSuspended) return;
 
-    // 1. Consolă
     if (color != 0) setColor(color);
     std::wcout << message << std::endl;
     if (color != 0) resetColor();
 
-    // 2. Fișier (ADĂUGĂ ACEST BLOC)
     if (logToFileEnabled && !fileLoggingMuted && logFile.is_open()) {
-        // La writeRaw probabil NU vrei timestamp sau prefixul [LOG], 
-        // vrei doar instrucțiunea SQL pură.
         std::string utf8Message = utf8_encode(message);
         logFile << utf8Message << std::endl;
         logFile.flush();
@@ -274,74 +147,13 @@ void ConsoleManager::writeRaw(const std::wstring& message, WORD color) {
 
     for (size_t i = 0; i < m_extraOutputs.size(); ++i) {
         if (m_extraOutputs[i]) {
-            m_extraOutputs[i]->writeLog(message,LogLevel::INFO);
+            m_extraOutputs[i]->writeLog(message, LogLevel::INFO);
         }
     }
 }
 
-/*
-void ConsoleManager::clear() {
-    HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
-    CONSOLE_SCREEN_BUFFER_INFO csbi;
-    COORD topLeft = { 0, 0 };
-
-    // 1. Obținem dimensiunile curente ale buffer-ului consolei
-    if (!GetConsoleScreenBufferInfo(hConsole, &csbi)) {
-        return;
-    }
-
-    DWORD dwConSize = csbi.dwSize.X * csbi.dwSize.Y;
-    DWORD dwCharsWritten;
-
-    // 2. Umplem tot ecranul cu spații (' ')
-    FillConsoleOutputCharacter(hConsole, (TCHAR)' ', dwConSize, topLeft, &dwCharsWritten);
-
-    // 3. Resetăm atributele de culoare pentru tot ecranul
-    FillConsoleOutputAttribute(hConsole, csbi.wAttributes, dwConSize, topLeft, &dwCharsWritten);
-
-    // 4. Mutăm cursorul înapoi în colțul din stânga-sus
-    SetConsoleCursorPosition(hConsole, topLeft);
-
-
-}
-*/
-/*
 void ConsoleManager::clear() {
     std::lock_guard<std::recursive_mutex> lock(mtxLog);
-
-    HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
-    if (hConsole == INVALID_HANDLE_VALUE) return;
-
-    CONSOLE_SCREEN_BUFFER_INFO csbi;
-    if (!GetConsoleScreenBufferInfo(hConsole, &csbi)) return;
-
-    // Calculăm dimensiunea totală a buffer-ului
-    DWORD dwConSize = csbi.dwSize.X * csbi.dwSize.Y;
-    COORD topLeft = { 0, 0 };
-    DWORD dwCharsWritten;
-
-    // 1. Umplem tot buffer-ul cu spații
-    // TCHAR(' ') funcționează indiferent dacă ești pe Unicode sau ASCII
-    if (!FillConsoleOutputCharacter(hConsole, (TCHAR)' ', dwConSize, topLeft, &dwCharsWritten)) {
-        return;
-    }
-
-    // 2. Resetăm atributele de culoare (foarte important!)
-    if (!FillConsoleOutputAttribute(hConsole, csbi.wAttributes, dwConSize, topLeft, &dwCharsWritten)) {
-        return;
-    }
-
-    // 3. Mutăm cursorul în colțul din stânga sus
-    SetConsoleCursorPosition(hConsole, topLeft);
-
-    // 4. Forțăm std::wcout să știe că ecranul e curat (flush)
-    std::wcout.flush();
-}
-*/
-
-void ConsoleManager::clear() {
-    std::lock_guard<std::recursive_mutex> lock(mtxLog);
-    // Codul ANSI pentru "Clear Screen" (\033[2J) și "Move to 0,0" (\033[H)
     std::wcout << L"\033[2J\033[H";
     std::wcout.flush();
 }
@@ -349,15 +161,11 @@ void ConsoleManager::clear() {
 bool ConsoleManager::enableFileLogging(const std::wstring& filePath) {
     std::lock_guard<std::recursive_mutex> lock(mtxLog);
 
+    if (logFile.is_open()) closeLogFile();
 
-    if (logFile.is_open())closeLogFile();
-    // Deschidem ca ofstream normal (fără imbue)
-    // Convertim calea la string dacă e nevoie, sau folosim varianta wide pentru Windows
-    //logFile.open(filePath, std::ios::out | std::ios::app);
     logFile.open(std::filesystem::path(filePath), std::ios::out | std::ios::app);
     if (logFile.is_open() && logFile.tellp() == 0) {
-        // Scrie BOM-ul pentru UTF-8: EF BB BF
-        logFile << "\xEF\xBB\xBF";
+        logFile << "\xEF\xBB\xBF"; // UTF-8 BOM
     }
 
     if (logFile.is_open()) {
@@ -367,9 +175,8 @@ bool ConsoleManager::enableFileLogging(const std::wstring& filePath) {
     }
     return false;
 }
-                         
+
 void ConsoleManager::closeLogFile() {
-    // Punem lock și aici pentru siguranță dacă e apelată independent
     std::lock_guard<std::recursive_mutex> lock(mtxLog);
     if (logFile.is_open()) {
         logFile.close();
@@ -394,4 +201,3 @@ void ConsoleManager::addOutput(ILogOutput* output) {
         m_extraOutputs.push_back(output);
     }
 }
-

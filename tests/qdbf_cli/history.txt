@@ -1,0 +1,186 @@
+show tables
+select * from rude
+select * from persoane
+show tables
+show tables
+select * from rude
+desc rude
+/help
+show tables
+select * from test
+select * from persoane
+select * from persoane where ID < 3
+select * from persoane where ID <= 3
+select * from persoane where ID =< 3
+select * from persoane where ID <> 3
+select * from persoane where ID < 3
+select * from persoane where ID > 3
+select * from persoane where ID >= 3
+select * from persoane where id <=3
+select * from persoane where id <= 3
+select * from persoane where id < 3
+select * from persoane where id <= 3
+select * from persoane where id < 2 or id >3
+select * from rude
+select * from rude group by idpers
+select idpers, count(*) from rude group by idpers
+show tables
+desc persoane
+desc test3
+desc test2
+desc test
+desc test1
+desc test2
+desc test3;
+desc test3
+desc test4
+/exit
+show wew
+show tables
+select * from prsoane
+select * from persoane
+select * from persoane - Copy
+select * from 'persoane - Copy'
+select * from 'persoane - Copy'
+/quit
+show tables
+/connect admin:123@127.0.0.1
+show tables
+show tables
+admin
+show tables
+show tables
+/connect victor:123@127.0.0.1
+show tables
+admin 123
+/connect victor:123@localhost
+/connect victor:123@127.0.0.1
+/connect victor:123@127.0.0.1
+show tables
+quit
+/quit
+show tables
+/connect admin:123@localhost
+/connect admin:123@localhost:3519
+/connect admin:123@127.0.0.1
+show tables
+/adduser catalin 123 1
+select * from persoane
+show tables
+/connect tt:22@127.0.0.1 5444
+/connect tt:22@127.0.0.1 3519
+/connect tt:22@127.0.0.1:3519
+/connect victor:22@127.0.0.1:3519
+/connect victor:123@127.0.0.1:3519
+/connect admin:123@127.0.0.1:3519
+/connect admin:123@127.0.0.1
+/connect admin:123@127.0.0.1 3520
+show tables
+select count(*) from persoane
+/connect admin:123@127.0.0.1 3520
+show tables
+select * from persoane
+/quit
+show tables
+select * from persoane - Copy
+select * from "persoane - Copy"
+select * from 'persoane - Copy'
+/quit
+/adduser test 222 0
+/adduser test 123 0
+/adduser test 123 1
+/adduser test 123 1
+/adduser test 123 1
+/adduser test 123 1
+/adduser test 1 1
+/adduser test 1 1
+/connect test:1@127.0.0.1
+/list_users
+/list_users
+/list_users
+/list_users
+/list_users
+/list_users
+/adduser a 1
+/adduser a a 1
+/list_users
+/quit
+/list_users
+select * from persoane
+/list_users;
+/list_users
+/list_users
+/connect admin:123@127.0.0.1
+/list_users
+/adduser gigi p 1
+/list_users
+/quit
+/list_users
+/dropuser a
+/list_users
+/dropuser a
+/list_users
+/shtdown
+/shutdown
+/shutdown
+/connect admin:123@127.0.0.1
+/shutdown
+/quit
+/sessions
+/sessions
+/connect victor:123@127.0.0.1
+/sessions
+/sessions
+/connect victor:123@localhost
+/connect victor:123@127.0.0.1
+/sessions
+/help
+show tables
+/shutdown
+/shutdown
+/shutdown
+show tables
+/shutdown
+/shutdown
+/shutdown
+show tables
+/shutdown
+show tables
+/shutdown
+show tables
+/shutdown
+show tables
+/shutdown
+show tables
+/shutdown
+show tables
+/shutdown
+show tables
+/shutdown
+show tables
+/shutdon
+/shutdown
+show tables
+/shutdown
+show tables
+/shutdown
+/dsa
+/dsa
+/sessions
+select * from persoane
+show tables
+select * from persoane
+\quit
+/quit
+show tables
+/shutdown
+show tables
+show tables
+/shutdown
+/shutdown
+show tables
+show tables
+select * from ada limit 10
+show tables
+select * from persoane
+select nume,varsta from persoane

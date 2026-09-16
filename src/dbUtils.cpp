@@ -85,3 +85,36 @@ std::wstring getDbValueFromQuery(dbConnection* db,
    //vMessageDialog::Warning(L"Aici:" + result);
     return result;
 }
+
+std::map<std::wstring, std::wstring> getDbRowMapFromQuery(
+    dbConnection* db,
+    const std::wstring& query)
+{
+    std::map<std::wstring, std::wstring> result;
+
+    if (!db || !db->isConnected()) {
+        return result;
+    }
+
+    std::string internalStm = "row_map_lookup_" + std::to_string(rand() % 1000);
+
+    if (db->execQuery(query, internalStm)) {
+        if (db->fetchNextRow(internalStm)) {
+            // Folosim getColumnNames care este membru în dbConnection
+            const auto& colNames = db->getColumnNames(internalStm);
+
+            for (const auto& colName : colNames) {
+                result[colName] = db->fetchFieldByName(colName, internalStm);
+            }
+        }
+    }
+    else {
+        std::wstring err_msg = L"[getDbRowMapFromQuery] query: " + query;
+        LOG_ERROR(err_msg);
+    }
+
+    // Curățăm resursele statement-ului
+    db->clearStatement(internalStm);
+
+    return result;
+}

@@ -211,8 +211,8 @@ bool reportHandler::parseXmlFile(){
     pugi::xml_parse_result result = doc.load_file((getGlobalReportPath()+xmlDescFile).c_str());
 
     if (!result) {
-        std::cerr << "Eroare la încărcarea fisierului XML: " << result.description() << std::endl;
-        std::cerr << "Linia: " << result.offset << std::endl; // Linie/offset unde s-a întâlnit problema
+        LOG_ERROR(L"Eroare la încărcarea fisierului XML: " + str_to_wstr(result.description()));
+        LOG_ERROR(L"Linia: " + to_wstring<int>(result.offset)); // Linie/offset unde s-a întâlnit problema
 
         return false;
     }
@@ -404,7 +404,7 @@ bool reportHandler::generateReport(){
 }
 */
 
-
+/*
 bool reportHandler::generateReport() {
 
 
@@ -422,26 +422,30 @@ bool reportHandler::generateReport() {
     }
 
 
-    //report_tpls[templateFile].printVars(true);
-        //  std::cout << "XXXX:"<<
-      /*
-        for ( auto& source : dataSources) {
-            //source.getDbData();
-            //report_tpls[templateFile].replace(L"$"+str_to_wstr(source.getName()), source.fetch());
-            if(source.getName() == "fsna_oper"){
-                for( auto& d_row: source.getDataRows())
-                    for( auto& var_r : d_row.getVars())
-                std::cout<< "AAAAAAAAAAAAAAAAuuuuuuuuuu:"<<var_r.second.getName()<<" - " <<var_r.second.getTplName() << ":" << wstr_to_str(var_r.second.getValue())  <<std::endl;
-            }
-        }
-    */
-
     for (const auto& g_var : global_vars) {
         getTemplateByName(templateFile)->assign(str_to_wstr("$" + g_var.first), g_var.second.getValue());
     }
 
 
     return true;
+}
+*/
+
+bool reportHandler::generateReport() {
+
+    for (auto& source : dataSources) {
+        source.getDbData();
+        getTemplateByName(templateFile)->assign(L"$" + str_to_wstr(source.getName()), source.fetch());
+    }
+
+    for (const auto& g_var : global_vars) {
+        getTemplateByName(templateFile)->assign(str_to_wstr("$" + g_var.first), g_var.second.getValue());
+    }
+
+    // ⭐ CORECȚIA CHEIE: Populăm membrul `generatedReport` cu conținutul RTF final!
+    generatedReport = report_tpls[templateFile].fetch();
+
+    return !generatedReport.empty();
 }
 
 bool reportHandler::saveReport(const std::string& filePath) const {
@@ -485,9 +489,10 @@ void reportHandler::addGlobalVar(std::string var_name, reportVar gvar) {
     //return ::setGlobalVarValue(var_name, var_value);
 }
 
-std::wstring reportHandler::fetch(){
-   // AfxMessageBox("Continut:");
-    return report_tpls[templateFile].fetch();
+
+std::wstring reportHandler::fetch() {
+    generatedReport = report_tpls[templateFile].fetch();
+    return generatedReport;
 }
 
 void reportHandler::clean() {

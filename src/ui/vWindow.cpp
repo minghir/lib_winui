@@ -26,25 +26,7 @@ vWindow::~vWindow() {
 bool vWindow::create(const std::wstring& className, const std::wstring& title,
     DWORD style, int x, int y, int w, int h,
     HWND parent, HMENU menu) {
-    /*
-    switch (m_WindowType) {
-    case WindowType::StandardWindow:
-        style |= WS_OVERLAPPEDWINDOW;
-        break;
-
-    case WindowType::DialogWindow:
-        style = WS_POPUP | WS_CAPTION | WS_SYSMENU;
-        break;
-
-    case WindowType::ToolWindow:
-        style = WS_POPUP | WS_CAPTION | WS_VISIBLE | WS_EX_TOOLWINDOW;
-        break;
-
-    case WindowType::PopupWindow:
-        style = WS_POPUP;
-        break;
-    }
-    */
+    
     DWORD dwExStyle = 0; // Variabilă nouă pentru stiluri extinse
    // LOG_WARNING()
     switch (m_WindowType) {
@@ -73,30 +55,7 @@ bool vWindow::create(const std::wstring& className, const std::wstring& title,
     m_base_width = w;
     m_base_height = h;
 
-    /*
-    WNDCLASS wc = {}; // Inițializează structura la zero
-    //wc.lpfnWndProc = StaticWndProc; // Asociază procedura statică de fereastră din vControl.
-    //wc.lpfnWndProc = wndProc; // Asociază procedura statică de fereastră din vControl.
-    wc.lpfnWndProc = vControl::StaticWndProc;
-    wc.hInstance = m_hInstance;
-    wc.lpszClassName = className.c_str();
-    wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
-    wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
-    wc.hIcon = LoadIcon(nullptr, IDI_APPLICATION);
-
-    // Verifică dacă clasa de fereastră este deja înregistrată pentru a evita erori.
-    WNDCLASS existingWc; // Pentru a verifica existența clasei.
-    if (!GetClassInfo(m_hInstance, className.c_str(), &existingWc)) {
-        if (!RegisterClass(&wc)) {
-            //ConsoleManager::getInstance().log(L"[ERROR] Creare vWindow: Eroare la înregistrarea clasei de fereastră '" + className + L"'. Cod eroare: " + std::to_wstring(GetLastError()));
-            return false;
-        }
-        //ConsoleManager::getInstance().log(L"[vWindow::create] Clasa de fereastră '" + className + L"' înregistrată cu succes.");
-    }
-    else {
-       // ConsoleManager::getInstance().log(L"[vWindow::create] Clasa de fereastră '" + className + L"' este deja înregistrată. Se va reutiliza.");
-    }
-    */
+    
 
     // Folosește versiunea EXW pentru siguranță maximă
     WNDCLASSEXW wc = { 0 };
@@ -157,7 +116,11 @@ bool vWindow::create(const std::wstring& className, const std::wstring& title,
         //ConsoleManager::getInstance().log(L"[ERROR] Creare vWindow: Eroare la crearea ferestrei '" + title + L"'. Cod eroare: " + std::to_wstring(GetLastError()));
     }
     else {
+        if (parent != nullptr) {
+            SetWindowLongPtr(m_handle, GWLP_HWNDPARENT, (LONG_PTR)parent);
+        }
         centerWindow();
+        
         //ConsoleManager::getInstance().log(L"[vWindow::create] Fereastra '" + title + L"' (ID: " + std::wstring(m_id.begin(), m_id.end()) + L") a fost creată cu succes. HWND: " + std::to_wstring(reinterpret_cast<uintptr_t>(m_handle)));
     }
     return m_handle != nullptr;
@@ -273,35 +236,8 @@ LRESULT vWindow::handleMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam
                     return TRUE;
                 }
 
+    
     /*
-    case WM_DPICHANGED: {
-
-        int newDpi = HIWORD(wParam);
-        RECT* suggested = (RECT*)lParam;
-
-
-        //LOG_DEBUG(L"vWindow::handleMessage : AM PRIMIT WM_DPICHANGED incep scalarea la:" + to_wstring<int>(newDpi));
-
-        SetWindowPos(hwnd, NULL,
-            suggested->left,
-            suggested->top,
-            suggested->right - suggested->left,
-            suggested->bottom - suggested->top,
-            SWP_NOZORDER | SWP_NOACTIVATE);
-
-
-      
-
-        // 3. Propagăm noul DPI în toată ierarhia (fonturi, coloane grid, etc.)
-        this->scale(newDpi);
-
-        // 4. Forțăm layout-ul să se recalculeze pentru noile dimensiuni și noul DPI
-        //this->applyLayout();
-
-        return 0;
-    }
-    */
-
     case WM_DPICHANGED: {
         int newDpi = HIWORD(wParam);
         RECT* suggested = (RECT*)lParam;
@@ -318,6 +254,40 @@ LRESULT vWindow::handleMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam
         // ATENȚIE: Verifică în vControl::scale să NU apelezi SetWindowPos cu SWP_NOMOVE = false 
         // pentru obiectele de tip Window, altfel vei muta fereastra la coordonatele ei relative (0,0 sau vechiul x,y)
         this->scale(newDpi);
+
+        return 0;
+    }
+    */
+    case WM_DPICHANGED: {
+        int newDpi = HIWORD(wParam);
+        RECT* suggested = (RECT*)lParam;
+
+        // 1. Aplicăm dimensiunea exactă sugerată de Windows (include frame, margini High-DPI etc.)
+        SetWindowPos(hwnd, NULL,
+            suggested->left,
+            suggested->top,
+            suggested->right - suggested->left,
+            suggested->bottom - suggested->top,
+            SWP_NOZORDER | SWP_NOACTIVATE);
+
+        // 2. Actualizăm starea internă a ferestrei ocolind vControl::scale
+        // (astfel evităm al doilea SetWindowPos distructiv pe fereastra principală)
+        m_currentDpi = newDpi;
+        m_width = suggested->right - suggested->left;
+        m_height = suggested->bottom - suggested->top;
+
+        // 3. Scalăm direct doar copiii din ierarhie la noul DPI
+        for (auto& childPair : m_children) {
+            if (childPair.second) {
+                childPair.second->scale(newDpi);
+            }
+        }
+
+        // 4. Repoziționăm copiii conform strategiei de layout active pentru noul spațiu
+        this->applyLayout();
+
+        // 5. Forțăm o redesenare completă a ferestrei și a tuturor copiilor (curăță artefactele)
+        RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_ERASE | RDW_UPDATENOW);
 
         return 0;
     }
@@ -369,9 +339,13 @@ void vWindow::showModal() {
     m_isModal = true;
 
     // 1. Identificare părinte
-    m_hParentForModal = GetWindow(m_handle, GW_OWNER);
+   // m_hParentForModal = GetWindow(m_handle, GW_OWNER);
     if (!m_hParentForModal) {
-        m_hParentForModal = vApp::getAppInstance()->getMainWindow();
+        m_hParentForModal = GetWindow(m_handle, GW_OWNER);
+        if (!m_hParentForModal) {
+            m_hParentForModal = vApp::getAppInstance()->getMainWindow();
+        }
+        //m_hParentForModal = vApp::getAppInstance()->getMainWindow();
     }
 
     // 2. Blocare părinte
@@ -379,7 +353,7 @@ void vWindow::showModal() {
         EnableWindow(m_hParentForModal, FALSE);
     }
 
-    centerWindow();
+    //centerWindow();
     ShowWindow(m_handle, SW_SHOW);
     SetForegroundWindow(m_handle);
     SetFocus(m_handle);
@@ -393,6 +367,7 @@ void vWindow::showModal() {
         }
     }
     // Când m_isModal devine false (în hide()), ieșim din while și execuția continuă
+    
 }
 
 void vWindow::hide() {
@@ -411,6 +386,9 @@ void vWindow::hide() {
 
 void vWindow::centerWindow() {
     if (!m_handle) return;
+
+    
+    
 
     HWND hOwner = GetWindow(m_handle, GW_OWNER);
     RECT rcOwner, rcChild;
@@ -440,6 +418,50 @@ void vWindow::centerWindow() {
             y = (GetSystemMetrics(SM_CYSCREEN) - height) / 2;
         }
     }
-
+    LOG_DEBUG(L"Centrez la: " + std::to_wstring(x) + L", " + std::to_wstring(y));
     SetWindowPos(m_handle, NULL, x, y, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+}
+
+void vWindow::centerWindowToScreen() {
+    if (!m_handle) return;
+
+    // 1. Folosim dimensiunile memorate în obiect, nu cele din sistem (care pot fi 0)
+    int width = (m_width > 0) ? m_width : 900;
+    int height = (m_height > 0) ? m_height : 600;
+
+    // 2. Determinăm ecranul curent (cel care conține mouse-ul sau fereastra)
+    HMONITOR hMonitor = MonitorFromWindow(m_handle, MONITOR_DEFAULTTONEAREST);
+    MONITORINFO mi = { sizeof(mi) };
+    mi.cbSize = sizeof(mi);
+
+    int x, y;
+
+    if (GetMonitorInfo(hMonitor, &mi)) {
+        // Centrare pe zona de lucru (Work Area - exclude Taskbar-ul)
+        x = mi.rcWork.left + ((mi.rcWork.right - mi.rcWork.left) - width) / 2;
+        y = mi.rcWork.top + ((mi.rcWork.bottom - mi.rcWork.top) - height) / 2;
+    }
+    else {
+        // Fallback dacă GetMonitorInfo eșuează
+        x = (GetSystemMetrics(SM_CXSCREEN) - width) / 2;
+        y = (GetSystemMetrics(SM_CYSCREEN) - height) / 2;
+    }
+
+    LOG_DEBUG(L"Centrez pe ecran la: " + std::to_wstring(x) + L", " + std::to_wstring(y));
+
+    // 3. Poziționăm fereastra
+    SetWindowPos(m_handle, HWND_TOP, x, y, width, height, SWP_NOZORDER | SWP_NOACTIVATE);
+}
+
+
+void vWindow::setTitle(const std::wstring& title) {
+    if (!m_handle || !IsWindow(m_handle)) {
+        ConsoleManager::getInstance().log(L"[vWindow::setTitle] Handle invalid pentru fereastra ID: " + std::wstring(m_id.begin(), m_id.end()));
+        return;
+    }
+
+    if (!SetWindowTextW(m_handle, title.c_str())) {
+        ConsoleManager::getInstance().log(L"[vWindow::setTitle] Eroare la setarea titlului pentru fereastra ID: "
+            + std::wstring(m_id.begin(), m_id.end()) + L". Cod eroare: " + std::to_wstring(GetLastError()));
+    }
 }

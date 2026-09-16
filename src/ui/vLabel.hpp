@@ -40,7 +40,9 @@ public:
 
     void scale(int newDpi) override {
         vControl::scale(newDpi);   // Actualizează DPI
-        this->scaleFont(newDpi);   // Setează fontul standard (WM_SETFONT pe m_handle)
+        if (!m_hasCustomFont) {
+            this->scaleFont(newDpi);
+        }
     }
 
     //void setRightAlign(bool rightAlign) { m_rightAlign = rightAlign; }

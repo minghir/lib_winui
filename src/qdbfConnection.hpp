@@ -20,6 +20,7 @@
 #include "dbConnection.hpp"
 #include <vector>
 #include <string>
+#include <cwctype>
 
 #pragma comment(lib, "ws2_32.lib")
 #include "dbConnection.hpp"
@@ -221,6 +222,60 @@ public:
     // LIPSA: getLastQueryResult
     vConResult getLastQueryResult() override {
         return m_lastResult;
+    }
+
+    // --- IMPLEMENTAREA NOUĂ: ExecQuery cu parametri pentru qdbfConnection ---
+    bool execQuery(const std::wstring& query, const std::vector<std::wstring>& params, std::string stm_name = "default") override {
+        // 1. Procesăm interogarea înlocuind semnele '?' cu valorile din vectorul de parametri
+        std::wstring processedQuery = query;
+        size_t paramIdx = 0;
+        size_t pos = 0;
+
+        // Lambda pentru a detecta dacă un șir reprezintă un număr (întreg sau zecimal)
+        auto isNumeric = [](const std::wstring& s) {
+            if (s.empty()) return false;
+            size_t start = (s[0] == L'-' || s[0] == L'+') ? 1 : 0;
+            if (start == s.length()) return false;
+            bool hasDecimal = false;
+            for (size_t i = start; i < s.length(); ++i) {
+                if (s[i] == L'.') {
+                    if (hasDecimal) return false;
+                    hasDecimal = true;
+                }
+                else if (!std::iswdigit(s[i])) {
+                    return false;
+                }
+            }
+            return true;
+        };
+
+        // 2. Înlocuim secvențial fiecare '?'
+        while ((pos = processedQuery.find(L'?', pos)) != std::wstring::npos && paramIdx < params.size()) {
+            std::wstring rawVal = params[paramIdx];
+            std::wstring formattedVal;
+
+            if (isNumeric(rawVal)) {
+                formattedVal = rawVal; // Numerele rămân ca atare
+            }
+            else {
+                // Pentru text, escapăm eventualele ghilimele simple interne duplicându-le (' -> '') 
+                // și în încadrăm între ghilimele simple.
+                std::wstring escapedVal = rawVal;
+                size_t qPos = 0;
+                while ((qPos = escapedVal.find(L'\'', qPos)) != std::wstring::npos) {
+                    escapedVal.replace(qPos, 1, L"''");
+                    qPos += 2;
+                }
+                formattedVal = L"'" + escapedVal + L"'";
+            }
+
+            processedQuery.replace(pos, 1, formattedVal);
+            pos += formattedVal.length();
+            paramIdx++;
+        }
+
+        // 3. Trimitem mai departe interogarea gata formatată către funcția ta de rețea existentă
+        return execQuery(processedQuery, stm_name);
     }
 
 private:

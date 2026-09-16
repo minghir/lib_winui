@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vXmlDialog name="dlgTestLayout" WindowType="DialogWindow" title="Test Layout Procentual" width="600" height="450" LayoutStrategy="VerticalPercentStackLayout" background="#F0F0F0">
+    
+    <font name="fntTitlu" faceName="Arial" height="18" weight="bold" />
+    <font name="fntNormal" faceName="Segoe UI" height="12" weight="normal" />
+
+    <vContainer name="headerPanel" type="vPanel" 
+                widthMode="FILL" heightMode="PERCENT" height="15" 
+                background="#34495E" textColor="#FFFFFF" font="fntTitlu">
+        <vControl name="lblTitlu" type="vLabel" widthMode="FILL" heightMode="FILL" textAlign="CENTER-MIDDLE" >
+            <text>Configurare Utilizator:</text>
+        </vControl>
+    </vContainer>
+
+    <vContainer name="bodyPanel" type="vPanel" 
+                LayoutStrategy="VerticalPercentStackLayout" 
+                widthMode="FILL" heightMode="PERCENT" height="70" 
+                marginLeft="10" marginTop="10" marginRight="10" marginBottom="10">
+
+        <vContainer name="row1" type="vPanel" LayoutStrategy="HorizontalPercentStackLayout" widthMode="FILL" heightMode="FIXED" height="35" marginBottom="5" >
+            <vControl name="lblNume" type="vLabel" widthMode="PERCENT" width="35" font="fntNormal" textAlign="RIGHT-BOTTOM"><text>Nume Complet:</text></vControl>
+            <vControl name="editNume" type="vEdit" widthMode="PERCENT" width="70" height="30" background="#FFFFFF" font="fntNormal" dbColumn="USER_NAME" />
+        </vContainer>
+
+        <vContainer name="row2" type="vPanel" LayoutStrategy="HorizontalPercentStackLayout" widthMode="FILL" heightMode="FIXED" height="35">
+            <vControl name="lblDep" type="vLabel" widthMode="PERCENT" width="30" font="fntNormal" textAlign="RIGHT-BOTTOM"><text>Departament:</text></vControl>
+            <vControl name="pickerDep" type="vDbGridPicker" widthMode="FILL"  height="30" heightMode="FILL" >
+				<attribute name="targetQuery" value="select registration,mtow,aircraft_icao_code AS aircraft from date_aviatie.fleet" />
+				<attribute name="returnColumn" value="registration" />
+			</vControl>
+        </vContainer>
+
+        <vContainer name="row3" type="vPanel" LayoutStrategy="VerticalPercentStackLayout" widthMode="FILL" heightMode="FILL">
+            <vControl name="lblObs" type="vLabel" widthMode="FILL" heightMode="FIXED" height="25" font="fntNormal"><text>Observații:</text></vControl>
+            <vControl name="editObs" type="vEdit" widthMode="FILL" heightMode="FILL" background="#FFFFFF" font="fntNormal" />
+        </vContainer>
+    </vContainer>
+
+    <vContainer name="footerPanel" type="vPanel" 
+                LayoutStrategy="HorizontalPercentStackLayout" 
+                widthMode="FILL" heightMode="FILL" 
+                background="#D5D8DC" marginTop="5">
+        
+		 <vControl name="btnCancel" type="vButton" widthMode="FIXED" width="100" heightMode="FIXED" height="30" marginLeft="10">
+            <text>Anulează</text>
+			<handler name="click" function="onCancel"/>
+        </vControl>
+		
+		<vControl name="btnOk" type="vButton" widthMode="FILL" heightMode="FIXED" height="30" marginLeft="10" marginRight="10" background="#0078D7" textColor="#ffffff">
+            <text>Salvează Datele</text>
+			<handler name="click" function="onOK"/>
+        </vControl>
+    </vContainer>
+
+</vXmlDialog>

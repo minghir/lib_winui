@@ -1,0 +1,237 @@
+show tables
+show tables
+show tables
+show tables
+show tables
+show tables
+show tables
+show tables
+select * from persoane
+show tables
+show tables
+show tables
+show tables
+select * from persoane
+show tables
+desc rude desc rude
+describe rude
+describe rude
+select * from persoane
+select * from persoane
+select * from persoanel
+select * from persoanel select * from persoane
+show tables
+select * from persoane
+show tables
+/quit ;
+show tables
+select * from persoane
+select * from persoane
+select * from persoane
+select * from persoane
+select * from persoane
+select * from persoane
+select * from persoane
+select * from persoane
+select * from persoane
+select * from persoane
+select * from persoane
+select * from persoane
+select * from persoane
+select * from persoane
+select * from persoane
+select * from persoane
+select * from persoane
+select * from persoane
+select * from persoane
+select * from persoane
+select * from persoane
+select * from persoane
+select * from persoane
+select * from persoane
+select * from persoane
+select * from persoane
+select * from persoane
+select * from persoane
+select * from persoane
+select * from persoane
+select * from persoane
+select * from persoane
+select * from persoane
+select * from persoane
+select * from persoane
+/quit sdada dsadsa dada caca
+show tables
+show tables
+show tables
+show tables
+show tables
+show tables
+show tables
+show tables
+show tables
+show tables
+show tables
+show tables
+show tables
+show tables
+show tables
+show tables; select * from persoane
+show tables; select * from persoane
+show tables; select * from persoane
+show tables; select * from persoane
+show tables
+show tables
+show tables
+show tables; select * from persoane
+show tables; select * from persoane
+show tables; select * from persoane
+show tables; select * from persoane
+show tables; select * from persoane
+show tables; select * from persoane
+show tables; select * from persoane
+show tables; select * from persoane
+/quit show tables; select * from persoane; /quit
+/quit; show tables; select * from persoane; /quit
+show tables
+select * from persoane
+show tables
+select * from persoane
+select * from persoane
+select * from rude
+select * from rude
+select * from rude
+desc rude desc rude
+describe rude
+describe persoane
+show tables
+select * from persoane
+show tables
+show tables show tables
+show tables
+select * from test2
+select * from test
+select * from test1 select * from test1
+select * from test1 select * from test3
+select * from test
+show tables
+select * from persoane
+select * from persoane
+select * from rude
+select * from persoane
+select * from rude
+show tables
+select * from persoane
+show tables
+select * from persoane
+select * from persoane
+select * from persoane
+select * from persoane
+select * from persoane
+describe persoane
+show tables
+show tables
+show tables
+select * from persoane
+select * from persoa
+show tables
+select * from persoane
+select * from persoane
+describe persoane
+show tables
+select * from test4
+describe test4
+insert into test4 values(1.3)
+select * from persoane
+select * from test4
+describe test4
+select * from test4
+show tables
+select * from persoane
+show tables
+select * from persoane
+show tables
+describe persoane
+show tables
+describe persoane
+describe persoane
+describe persoane
+show tables
+select * from persoane
+show tables
+show tables
+describe persoane
+describe persoane
+describe persoane
+describe persoane
+describe persoane describe persoane select * from persoane
+show show show table show tables show tables
+show tables
+select * from persoane
+show tables
+show tables
+select * from persoane
+select * from persoane
+select * from persoane
+show tables
+show tables
+show tables
+show tables
+select * from persoane
+show tables
+show tables
+/quit
+select * from persoane
+show tables
+select * from rude
+show tables
+show tables
+select * from persoane
+select * from persoane
+/quit
+show tables
+show tables
+show tables
+show tables
+select * from persoane
+select * from persoane
+select * from persoane, rude
+select * from persoane
+select * from persoane
+select * from persoane, rude
+select * from persoane, rude
+select * from rude select * from rude
+select * from persoane, rude where rude.idpers = persoane.id
+select * from persoane, rude where rude.idpers = persoane.id
+browselect * from persoane
+select * from persoane
+insert into persoane values(5,'Apostol C?t?lin', 23, 19771203, 'Bucuresti')
+select * from persoane
+update persoane set nume='Apostol Catalin' where id=5
+select * from persoane
+select * from persoane
+show tables
+select * from persoane
+select * from persoane
+show tables
+select * from persoane
+show tables
+select * from test
+select * from persoane
+select * from persoane
+select * from persoane
+select * from persoane
+show tables
+/connect admin:123@127.0.0.1
+/connect admin:123@127.0.0.1
+/connect admin:123@127.0.0.1 3519
+/connect admin:123@127.0.0.1 3519
+show tables
+/sessions
+show tables
+/quit
+select * from persoane
+/show tables;
+show tables
+select * from persoane
+show tables

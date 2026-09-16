@@ -18,6 +18,7 @@
 #include <string>
 #include <vector>
 #include <unordered_set>
+#include <map>
 
 
 class vGrid : public vControl {
@@ -66,7 +67,8 @@ public:
 
     std::wstring getCellText(int rowIndex, int colIndex) const;
     void autoFitAllColumns();
-
+    std::map<std::wstring, std::wstring> getRowAsMap(int rowIndex) const;
+    std::vector<std::wstring> getRowAsVector(int rowIndex) const;
 
 protected:
 
@@ -81,6 +83,8 @@ protected:
 
     // Se apelează când se dă dublu click pe un rând
     virtual void onRowDoubleClick(int rowIndex, int colIndex); // Am adăugat colIndex
+
+    virtual void onRowClick(int rowIndex, int colIndex);
 
     void onRowRightClick(int rowIndex, int x, int y);
 

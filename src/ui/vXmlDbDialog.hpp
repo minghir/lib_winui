@@ -7,9 +7,12 @@
 #include "vDbComboBox.hpp"
 #include "vDatePicker.hpp"
 #include "vCheckBox.hpp"
+#include "vGrid.hpp"          // Suport vGrid
+
 #include "../dbConnection.hpp"
 #include "../stringUtils.hpp"
 
+#include <commctrl.h>
 
 
 class vXmlDbDialog : public vXmlDialog {
@@ -103,6 +106,20 @@ protected:
         if (auto pBox = dynamic_cast<vDbComboBox*>(ctrl)) {
             pBox->setDbConnection(m_db);
             pBox->populate();
+        }
+
+        else if (auto pDbGrid = dynamic_cast<vDbGrid*>(ctrl)) {
+            pDbGrid->setDbConnection(m_db);
+            std::wstring targetQuery = pDbGrid->getAttribute(L"targetQuery");
+            if (!targetQuery.empty() && m_db) {
+                // Populăm direct gridul cu interogarea din XML
+                //pDbGrid->populate(targetQuery);
+
+                // Activăm bifele pe ListView-ul de sub vDbGrid
+                HWND hGrid = pDbGrid->getHandle();
+                DWORD dwStyle = ListView_GetExtendedListViewStyle(hGrid);
+                ListView_SetExtendedListViewStyle(hGrid, dwStyle | LVS_EX_CHECKBOXES | LVS_EX_FULLROWSELECT | LVS_EX_GRIDLINES);
+            }
         }
 
         // 2. Navigare în adâncime DOAR dacă este container
@@ -303,9 +320,20 @@ protected:
         std::wstring sql = L"INSERT INTO " + m_tableName +
             L" (" + columns + L") VALUES (" + values + L")";
 
+        sql += L" RETURNING " + m_primaryKey;
+
         LOG_INFO(L"[DB Insert] Executare SQL: " + sql);
         
-        return m_db->execQuery(sql);
+        if (m_db->execQuery(sql, m_stmName)) {
+            if (m_db->fetchNextRow(m_stmName)) {
+                // Deoarece am cerut direct coloana PK, o preluăm după nume
+                this->m_currentId = trim(m_db->fetchFieldByName(m_primaryKey, m_stmName));
+                LOG_INFO(L"[DB Insert] Succes! ID-ul preluat prin RETURNING este: " + m_currentId);
+                return true;
+            }
+        }
+
+        return false;
 
         
     }
@@ -478,6 +506,56 @@ protected:
                 setDbFieldsEnabledRecursive(childPair.second.get(), enable);
             }
         }
+    }
+
+    bool isControlDirty(vControl* ctrl) {
+        if (!ctrl || m_originalValues.find(ctrl) == m_originalValues.end()) return false;
+
+        std::wstring currentValue = L"";
+
+        // Extrage valoarea curentă în funcție de tip
+        if (auto edit = dynamic_cast<vEdit*>(ctrl)) currentValue = edit->getText();
+        else if (auto combo = dynamic_cast<vDbComboBox*>(ctrl)) currentValue = combo->getSelectedStringValue();
+        // ... adaugă și celelalte tipuri pe care le folosești ...
+
+        return m_originalValues[ctrl] != currentValue;
+    }
+
+
+    void markControlAsClean(vControl* ctrl) {
+        if (!ctrl) return;
+
+        std::wstring val = L"";
+
+        // Extrage valoarea exact cum o face doUpdate
+        if (auto pDbCombo = dynamic_cast<vDbComboBox*>(ctrl)) val = pDbCombo->getSelectedStringValue();
+        else if (auto pDPiker = dynamic_cast<vDatePicker*>(ctrl)) val = pDPiker->getDateString();
+        else if (auto pDbPiker = dynamic_cast<vDbGridPicker*>(ctrl)) val = pDbPiker->getSelectedValue();
+        else if (auto pCheckBox = dynamic_cast<vCheckBox*>(ctrl)) val = pCheckBox->isChecked() ? L"1" : L"0";
+        else val = ctrl->getText();
+
+        // Actualizăm "starea originală" cu valoarea curentă din UI
+        m_originalValues[ctrl] = val;
+    }
+
+    std::wstring getControlText(vControl* ctrl) const {
+        if (!ctrl) return L"";
+
+        if (auto pDbCombo = dynamic_cast<vDbComboBox*>(ctrl)) {
+            return pDbCombo->getSelectedStringValue();
+        }
+        if (auto pDPiker = dynamic_cast<vDatePicker*>(ctrl)) {
+            return pDPiker->getDateString();
+        }
+        if (auto pDbPiker = dynamic_cast<vDbGridPicker*>(ctrl)) {
+            return pDbPiker->getSelectedValue();
+        }
+        if (auto pCheckBox = dynamic_cast<vCheckBox*>(ctrl)) {
+            return pCheckBox->isChecked() ? L"1" : L"0";
+        }
+
+        // Fallback pentru vEdit, vLabel, vComboBox standard etc.
+        return ctrl->getText();
     }
 
 };

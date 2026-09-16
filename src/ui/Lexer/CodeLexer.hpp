@@ -22,6 +22,8 @@ struct LangStyle {
     std::set<std::wstring> words;
     bool isNumber = false;
 
+
+
     // Constructor pentru a asigura inițializarea corectă
     LangStyle() : color(RGB(0, 0, 0)), bold(false), isNumber(false) {}
 };
@@ -31,7 +33,7 @@ struct LangDefinition {
     std::vector<std::wstring> extensions;
     bool caseSensitive;
     std::vector<LangStyle> blockStyles;
-    LangStyle keywordStyle;
+    std::vector<LangStyle> keywordStyles;
     LangStyle numberStyle;
 };
 
@@ -39,6 +41,7 @@ class CodeLexer {
 private:
     std::unordered_map<std::wstring, std::shared_ptr<LangDefinition>> m_extMap;
     std::shared_ptr<LangDefinition> m_currentLang = nullptr;
+    
 
     COLORREF hexToColor(const std::string& hex);
 
@@ -47,6 +50,7 @@ public:
     void loadSyntaxes(const std::string& folderPath);
     bool loadLanguageFile(const std::string& path);
     void setLanguageByFile(const std::wstring& filePath);
+    void setCurrentLang(const std::wstring& name);
     void highlight(vRichEdit* editor);
 };
 

@@ -245,6 +245,8 @@ std::wstring odbcConnection::getError(){
  * @param stm_name Numele statement-ului (cheia în mapa hstmts) de utilizat.
  * @return true dacă interogarea a fost executată cu succes și metadatele sunt setate, false altfel.
  */
+
+/*
 bool odbcConnection::execQuery(const std::wstring& query, std::string stm_name) {
     // Conversia numelui statement-ului pentru logare.
     std::wstring w_stm_name(stm_name.begin(), stm_name.end());
@@ -325,6 +327,214 @@ bool odbcConnection::execQuery(const std::wstring& query, std::string stm_name) 
     LOG_ERROR(query);
     return false;
 }
+*/
+bool odbcConnection::execQuery(const std::wstring& query, std::string stm_name) {
+    // Conversia numelui statement-ului pentru logare.
+    std::wstring w_stm_name(stm_name.begin(), stm_name.end());
+    std::wstring logMsg;
+
+    // 1. Asigură-te că handle-ul de statement este alocat.
+    if (hstmts.find(stm_name) == hstmts.end()) {
+        logMsg = L"odbcConnection::execQuery: Statement-ul '" + w_stm_name + L"' nu este alocat. Încerc alocarea...";
+        //LOG_INFO(logMsg);
+
+        if (!allocStatementHandle(stm_name)) {
+            LOG_ERROR(L"odbcConnection::execQuery: Eșec la alocarea handle-ului pentru: " + w_stm_name);
+            return false;
+        }
+    }
+
+    SQLHSTMT hstmt = hstmts[stm_name];
+    SQLRETURN retcode;
+    const int MAX_RETRIES = 1; // 0 = Încercare inițială; 1 = Reîncercare după reconectare
+
+    // Buclă de reîncercare pentru a gestiona conexiunea pierdută.
+    for (int retry = 0; retry <= MAX_RETRIES; ++retry) {
+
+        // Curăță erorile din DBC și STM înainte de a încerca execuția.
+        clearError();
+
+        // 2. Închide orice rezultat anterior și execută interogarea.
+        SQLFreeStmt(hstmt, SQL_CLOSE); // Eliberează rezultatele anterioare (rânduri, etc.)
+        retcode = SQLExecDirectW(hstmt, (SQLWCHAR*)query.c_str(), SQL_NTS);
+
+        // --- MODIFICARE CRUCIALĂ AICI: Adăugat retcode == SQL_NO_DATA (100) ---
+        if (retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO || retcode == SQL_NO_DATA) {
+            // Pasul A: Succes. Procesează metadatele.
+            logMsg = L"odbcConnection::execQuery: Execuție reușită (Tentativa " + std::to_wstring(retry) + L") pe " + w_stm_name;
+            if (retcode == SQL_NO_DATA) {
+                logMsg += L" (Atenție: 0 rânduri afectate/returnate)";
+            }
+            //LOG_SUCCESS(logMsg);
+
+            // Extrage și stochează metadatele (număr de coloane, nume, număr de rânduri)
+            SQLSMALLINT ColumnCountPtr = 0;
+            SQLNumResultCols(hstmt, &ColumnCountPtr);
+            ColumnCountPtrs[stm_name] = ColumnCountPtr;
+
+            colNames[stm_name].clear();
+
+            // PROTECȚIE: Apelăm setColNames DOAR dacă query-ul a returnat efectiv structură de tabelă (ex: un SELECT)
+            if (ColumnCountPtr > 0) {
+                if (!setColNames(stm_name)) return false;
+            }
+
+            SQLLEN rowCount = 0;
+            SQLRowCount(hstmt, &rowCount);
+
+            // Dacă retcode este SQL_NO_DATA, forțăm rowCount la 0 în caz că driverul raportează ciudat
+            if (retcode == SQL_NO_DATA) {
+                rowCount = 0;
+            }
+            RowCountPtrs[stm_name] = rowCount;
+
+            return true; // Ieși cu succes deplin!
+        }
+
+        // 3. Eșec real: Verifică dacă este o eroare de conexiune pierdută.
+        if (retry < MAX_RETRIES) {
+
+            // Verifică dacă eroarea indică o conexiune pierdută (ex: "server closed the connection unexpectedly")
+            if (isConnectionError(SQL_HANDLE_STMT, hstmt)) {
+                LOG_WARNING(L"odbcConnection::execQuery: Conexiune pierdută detectată. Se încearcă reconectarea...");
+
+                // Încearcă reconectarea (aceasta ar trebui să realoce hdbc și hstmt-urile necesare)
+                if (reconnect()) {
+                    continue; // Reia bucla for (retry devine 1)
+                }
+            }
+            else {
+                // Loghează eroarea ODBC care nu este legată de conexiune (ex: eroare SQL de sintaxă)
+                LOG_ERROR(L"odbcConnection::execQuery: Eroare ODBC la execuția interogării pe " + w_stm_name + L" (Tentativa " + std::to_wstring(retry) + L").");
+                showError(SQL_HANDLE_STMT, hstmt);
+            }
+        }
+
+        // Dacă nu mai sunt reîncercări sau nu a fost eroare de conexiune, ieși din buclă.
+        break;
+    }
+
+    // 4. Final: Eșec total (Doar pentru erori SQL reale, nu pentru SQL_NO_DATA)
+    LOG_FATAL(L"odbcConnection::execQuery: Eșec irecuperabil la executarea interogării pe " + w_stm_name + L".");
+    showError(SQL_HANDLE_STMT, hstmt);
+    LOG_ERROR(query);
+    return false;
+}
+
+bool odbcConnection::execQuery(const std::wstring& query, const std::vector<std::wstring>& params, std::string stm_name) {
+    std::wstring w_stm_name(stm_name.begin(), stm_name.end());
+    std::wstring logMsg;
+
+    // 1. Asigură-te că handle-ul de statement este alocat (folosind aceeași logică ca prima funcție)
+    if (hstmts.find(stm_name) == hstmts.end()) {
+        if (!allocStatementHandle(stm_name)) {
+            LOG_ERROR(L"odbcConnection::execQuery (Params): Eșec la alocarea handle-ului pentru: " + w_stm_name);
+            return false;
+        }
+    }
+
+    SQLHSTMT hstmt = hstmts[stm_name];
+    SQLRETURN retcode;
+    const int MAX_RETRIES = 1;
+
+    // Buclă de reîncercare pentru conexiuni pierdute
+    for (int retry = 0; retry <= MAX_RETRIES; ++retry) {
+        clearError();
+
+        // 2. Pregătim interogarea SQL
+        retcode = SQLPrepareW(hstmt, const_cast<SQLWCHAR*>(query.c_str()), SQL_NTS);
+        if (!SQL_SUCCEEDED(retcode)) {
+            if (retry < MAX_RETRIES && isConnectionError(SQL_HANDLE_STMT, hstmt)) {
+                LOG_WARNING(L"odbcConnection::execQuery (Params): Conexiune pierdută la prepare. Se reconectează...");
+                if (reconnect()) continue;
+            }
+            showError(SQL_HANDLE_STMT, hstmt);
+            return false;
+        }
+
+        // 3. Legăm parametrii din vectorul `params` (indexați de la 1)
+        bool bindFailed = false;
+        for (size_t i = 0; i < params.size(); ++i) {
+            SQLUSMALLINT paramIndex = static_cast<SQLUSMALLINT>(i + 1);
+
+            retcode = SQLBindParameter(
+                hstmt,
+                paramIndex,
+                SQL_PARAM_INPUT,
+                SQL_C_WCHAR,
+                SQL_WVARCHAR,
+                params[i].length(),
+                0,
+                (SQLPOINTER)params[i].c_str(),
+                0,
+                reinterpret_cast<SQLLEN*>(SQL_NTS)
+            );
+
+            if (!SQL_SUCCEEDED(retcode)) {
+                showError(SQL_HANDLE_STMT, hstmt);
+                bindFailed = true;
+                break;
+            }
+        }
+
+        if (bindFailed) {
+            return false;
+        }
+
+        // 4. Executăm interogarea pregătită
+        retcode = SQLExecute(hstmt);
+
+        // Tratează succesul sau lipsa de date (SQL_NO_DATA = 100)
+        if (retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO || retcode == SQL_NO_DATA) {
+
+            // Extrecție metadate coloane (esențial pentru SELECT-uri cu parametri)
+            SQLSMALLINT ColumnCountPtr = 0;
+            SQLNumResultCols(hstmt, &ColumnCountPtr);
+            ColumnCountPtrs[stm_name] = ColumnCountPtr;
+
+            colNames[stm_name].clear();
+            if (ColumnCountPtr > 0) {
+                if (!setColNames(stm_name)) return false;
+            }
+
+            SQLLEN rowCount = 0;
+            SQLRowCount(hstmt, &rowCount);
+            if (retcode == SQL_NO_DATA) {
+                rowCount = 0;
+            }
+            RowCountPtrs[stm_name] = rowCount;
+
+            return true;
+        }
+
+        // 5. Gestionarea erorilor și reconectarea în caz de picare în timpul execuției
+        if (retry < MAX_RETRIES) {
+            if (isConnectionError(SQL_HANDLE_STMT, hstmt)) {
+                LOG_WARNING(L"odbcConnection::execQuery (Params): Conexiune pierdută la execute. Se încearcă reconectarea...");
+                if (reconnect()) {
+                    // După reconectare, handle-ul s-ar putea să trebuiască re-alocat
+                    if (hstmts.find(stm_name) == hstmts.end() || hstmts[stm_name] == nullptr) {
+                        allocStatementHandle(stm_name);
+                        hstmt = hstmts[stm_name];
+                    }
+                    continue;
+                }
+            }
+            else {
+                LOG_ERROR(L"odbcConnection::execQuery (Params): Eroare ODBC pe " + w_stm_name + L" (Tentativa " + std::to_wstring(retry) + L").");
+                showError(SQL_HANDLE_STMT, hstmt);
+            }
+        }
+
+        break;
+    }
+
+    LOG_FATAL(L"odbcConnection::execQuery (Params): Eșec irecuperabil pe " + w_stm_name + L".");
+    showError(SQL_HANDLE_STMT, hstmt);
+    LOG_ERROR(query);
+    return false;
+}
+
 
 /**
  * @brief Preia următorul rând din setul de rezultate al unui statement.
@@ -334,7 +544,13 @@ bool odbcConnection::execQuery(const std::wstring& query, std::string stm_name) 
  */
 
 bool odbcConnection::fetchNextRow(std::string stm_name) {
-    SQLHSTMT hstmt = hstmts[stm_name];
+    auto it = hstmts.find(stm_name);
+    if (it == hstmts.end() || it->second == SQL_NULL_HSTMT) {
+        LOG_ERROR(L"fetchNextRow: Statement-ul nu a fost găsit sau este nul.");
+        return false;
+    }
+
+    SQLHSTMT hstmt = it->second;
     SQLRETURN ret = SQLFetch(hstmt);
     std::wstring w_stm_name(stm_name.begin(), stm_name.end());
 
@@ -412,10 +628,12 @@ bool odbcConnection::setColNames(std::string stm_name) {
 
         if (SQL_SUCCEEDED(ret)) {
             // Salvează numele, tipul și dimensiunea coloanei
-            colNames[stm_name].push_back(std::wstring(columnName, nameLength));
+            std::wstring colNameStr(columnName, nameLength); // Creat în siguranță cu lungimea exactă
+
+            colNames[stm_name].push_back(colNameStr);
             colTypes[stm_name].push_back(colType);
             colSizes[stm_name].push_back(colSize);
-            colNameIndexes[stm_name][columnName] = i;
+            colNameIndexes[stm_name][colNameStr] = i; // Folosim obiectul `colNameStr` deja validat
         }
         else {
             logMsg = L"odbcConnection::setColNames: Eșec la SQLDescribeColW pentru coloana " +

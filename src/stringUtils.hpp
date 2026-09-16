@@ -167,6 +167,6 @@ std::wstring shellNormalizeSpaces(const std::wstring& input);
 bool isNumber(const std::wstring& s);
 
 bool startsWith(const std::wstring& text, const std::wstring& prefix, bool ignoreCase = true);
-
+void replaceAll(std::wstring& s, const std::wstring& from, const std::wstring& to);
 #endif // STRINGUTILS_HPP
 

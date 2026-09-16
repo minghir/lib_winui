@@ -431,6 +431,24 @@
     <ClInclude Include="src\ui\Lexer\CodeLexer.hpp">
       <Filter>ui\Lexer</Filter>
     </ClInclude>
+    <ClInclude Include="src\mupdf\PdfDocument.hpp">
+      <Filter>mupdf</Filter>
+    </ClInclude>
+    <ClInclude Include="src\mupdf\vPdfViewerWindow.hpp">
+      <Filter>mupdf</Filter>
+    </ClInclude>
+    <ClInclude Include="src\mupdf\vPdfViewer.hpp">
+      <Filter>mupdf</Filter>
+    </ClInclude>
+    <ClInclude Include="src\mupdf\curl_stream.h">
+      <Filter>mupdf</Filter>
+    </ClInclude>
+    <ClInclude Include="..\thirdparty\pugixml-1.15\src\pugixml.hpp">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\vProgressBar.hpp">
+      <Filter>ui</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\dataSource.cpp">
@@ -607,9 +625,6 @@
     <ClCompile Include="src\wrapper\PdfWriterWrapper.cpp">
       <Filter>wrapper</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\thirdparty\pugixml-1.15\src\pugixml.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="src\ui\vSpacer.cpp">
       <Filter>ui</Filter>
     </ClCompile>
@@ -723,6 +738,24 @@
     </ClCompile>
     <ClCompile Include="src\ui\Lexer\CodeLexer.cpp">
       <Filter>ui\Lexer</Filter>
+    </ClCompile>
+    <ClCompile Include="src\mupdf\PdfDocument.cpp">
+      <Filter>mupdf</Filter>
+    </ClCompile>
+    <ClCompile Include="src\mupdf\vPdfViewerWindow.cpp">
+      <Filter>mupdf</Filter>
+    </ClCompile>
+    <ClCompile Include="src\mupdf\vPdfViewer.cpp">
+      <Filter>mupdf</Filter>
+    </ClCompile>
+    <ClCompile Include="src\mupdf\curl_stream.c">
+      <Filter>mupdf</Filter>
+    </ClCompile>
+    <ClCompile Include="..\thirdparty\pugixml-1.15\src\pugixml.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ui\vProgressBar.cpp">
+      <Filter>ui</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

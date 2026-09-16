@@ -55,6 +55,16 @@ public:
     bool generateReport();
     bool saveReport(const std::string& filePath) const;
 
+    const std::wstring& getReportContentAsWString() const {
+        return generatedReport;
+    }
+
+    std::string getReportContentAsString() const {
+        // Convertește wstring -> string (folosind utilitarul tău wstr_to_str)
+        return wstr_to_str(generatedReport);
+    }
+
+
     std::wstring getGlobalVarValue(std::string var_name);
     void setGlobalVarValue(std::string var_name, std::wstring var_value);
     void addGlobalVar(std::string var_name, reportVar gvar);

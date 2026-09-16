@@ -21,6 +21,8 @@ namespace fs = std::filesystem;
 bool tdocsRTFtoPDF(const std::wstring& rtfFile, const std::wstring& pdfDir);
 bool tdocsXHTMLtoPDF(const std::wstring& xhtmlFile, const std::wstring& pdfDir);
 
+bool tdocsRTFtoPDFMemory(const std::string& rtfInMemory, std::vector<uint8_t>& outPdfBuffer);
+
 bool startConsole();
 void wconcat_pdfs(const std::vector<std::wstring>& input_files, const std::wstring& output_file);
 void concat_pdfs(const std::vector<std::wstring>& inputFiles, const std::wstring& outputFile);

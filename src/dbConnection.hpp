@@ -134,6 +134,8 @@ public:
     virtual bool testConnection() = 0;
     //virtual const std::string& getType() const = 0;
     virtual bool execQuery(const std::wstring& query, std::string stm_name = "default" ) = 0;
+    virtual bool execQuery(const std::wstring& query, const std::vector<std::wstring>& params, std::string stm_name = "default") = 0;
+
     virtual long long execCountQuery(const std::wstring& countQuery) = 0;
 
     virtual int getRowCount(std::string stm_name = "default") = 0;

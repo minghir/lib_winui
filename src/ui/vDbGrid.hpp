@@ -71,6 +71,21 @@ public:
         return this->getCellText(rowIndex, colIndex);
     }
 
+    void setTargetQuery(std::wstring query) { 
+           m_query = query; 
+           setAttribute(L"targetQuery", m_query); 
+    }
+
+    void setDbConnection(dbConnection* db) {
+        this->m_db = db;
+        if (!m_db || !m_db->isConnected()) {
+            ConsoleManager::getInstance().log(L"[ERROR] vDbGrid::setDbConnection: Conexiunea la baza de date este invalidă.");
+            // Poți lansa o excepție aici sau poți gestiona eroarea mai târziu.
+        }
+        else {
+            ConsoleManager::getInstance().log(L"[INFO] vDbGrid::setDbConnection: Conexiunea la baza de date este validă.");
+        }
+    }
 protected:
     dbConnection* m_db;
 

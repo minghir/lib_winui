@@ -5,22 +5,21 @@
 
 #include <windows.h> // Pentru HWND, WORD, GetStdHandle, SetConsoleTextAttribute, AllocConsole etc.
 #include <iostream>  // Pentru std::wcout, std::endl
-#include <fstream>   // Nu este direct folosit aici, dar poate fi necesar pentru alte tipuri de logare
+#include <fstream>   // Pentru std::ofstream
 #include <string>    // Pentru std::wstring
 #include <vector>
-#include <mutex>     // Pentru std::mutex (opțional, pentru thread-safety)
+#include <mutex>     // Pentru std::recursive_mutex
 #include <chrono>
 #include <iomanip>
-
-
+#include <algorithm>
 
 enum class LogLevel {
-    INFO,           // Informații generale (default)
-    SUCCESS,        // Operație reușită (opțional, dar util)
-    WARNING,        // Avertisment (nu e critic, dar necesită atenție)
-    LOG_ERROR,      // Eroare (o problemă care nu oprește programul)
-    FATAL_ERROR,    // Eroare critică (programul trebuie să se oprească sau este grav afectat)
-    DEBUG           // Mesaje pentru depanare (folosite în timpul dezvoltării)
+    DEBUG = 0,      // Mesaje detaliate pentru dezvoltare (cel mai mic nivel)
+    INFO = 1,       // Informații generale (default)
+    SUCCESS = 2,    // Operație reușită
+    WARNING = 3,    // Avertisment
+    LOG_ERROR = 4,  // Eroare non-fatală
+    FATAL_ERROR = 5 // Eroare critică (cel mai înalt nivel)
 };
 
 class ILogOutput {
@@ -29,50 +28,41 @@ public:
     virtual void writeLog(const std::wstring& message, LogLevel level) = 0;
 };
 
-#define LOG_INFO(msg)         ConsoleManager::getInstance().log((msg),LogLevel::INFO)
-#define LOG_SUCCESS(msg)      ConsoleManager::getInstance().log((msg),LogLevel::SUCCESS)
-#define LOG_WARNING(msg)      ConsoleManager::getInstance().log((msg),LogLevel::WARNING)
-#define LOG_ERROR(msg)        ConsoleManager::getInstance().log((msg),LogLevel::LOG_ERROR)
-#define LOG_FATAL(msg)        ConsoleManager::getInstance().log((msg),LogLevel::FATAL_ERROR)
-#define LOG_DEBUG(msg)        ConsoleManager::getInstance().log((msg),LogLevel::DEBUG)
-#define LOG(msg)    ConsoleManager::getInstance().log((msg), LogLevel::INFO) 
-#define LOG_RAW(msg)    ConsoleManager::getInstance().writeRaw((msg)) 
-#define LOG_RAW(msg, color)    ConsoleManager::getInstance().writeRaw((msg), (color))
-
-
-
+#define LOG_INFO(msg)         ConsoleManager::getInstance().log((msg), LogLevel::INFO)
+#define LOG_SUCCESS(msg)      ConsoleManager::getInstance().log((msg), LogLevel::SUCCESS)
+#define LOG_WARNING(msg)      ConsoleManager::getInstance().log((msg), LogLevel::WARNING)
+#define LOG_ERROR(msg)        ConsoleManager::getInstance().log((msg), LogLevel::LOG_ERROR)
+#define LOG_FATAL(msg)        ConsoleManager::getInstance().log((msg), LogLevel::FATAL_ERROR)
+#define LOG_DEBUG(msg)        ConsoleManager::getInstance().log((msg), LogLevel::DEBUG)
+#define LOG(msg)              ConsoleManager::getInstance().log((msg), LogLevel::INFO) 
+#define LOG_RAW(msg)          ConsoleManager::getInstance().writeRaw((msg)) 
 
 class ConsoleManager {
 private:
     std::recursive_mutex mtxLog;
-    // Păstrează constructorul privat, dar șterge:
-    // ConsoleManager() = delete;
-    ConsoleManager() = default; // Acum este necesară o implementare
+
+    ConsoleManager() = default;
     ConsoleManager(const ConsoleManager&) = delete;
     ConsoleManager& operator=(const ConsoleManager&) = delete;
 
-    ~ConsoleManager() { closeLogFile(); } // Închidem fișierul la distrugere
+    ~ConsoleManager() { closeLogFile(); }
 
-    std::ofstream logFile; // Stream-ul pentru fișier
+    std::ofstream logFile;
     bool logToFileEnabled = false;
-    bool fileLoggingMuted = false; // "Switch-ul" tău pentru silențiozitate
+    bool fileLoggingMuted = false;
+    bool m_isSuspended = false;
 
+    // --- MODIFICARE 1: Nivelul curent de logare ---
+    LogLevel m_currentLogLevel = LogLevel::DEBUG;
 
-    bool m_isSuspended = false; // Flag pentru suspendarea TOTALĂ a logării
-
-    // Lista de ferestre/canvas-uri care vor loguri
     std::vector<ILogOutput*> m_extraOutputs;
-    
 
 public:
-    // METODA SINGLETON: Acesta este noul tău punct de acces
     static ConsoleManager& getInstance() {
-        // Creează instanța la prima utilizare (thread-safe din C++11 încoace)
         static ConsoleManager instance;
         return instance;
     }
 
-    // Toate metodele publice devin non-statice!
     void initialize();
     void setColor(WORD color);
     void resetColor();
@@ -84,9 +74,18 @@ public:
 
     bool enableFileLogging(const std::wstring& filePath);
     void closeLogFile();
-    std::wstring getTimestamp(); // Funcție utilă pentru loguri
+    std::wstring getTimestamp();
 
-    // Suspendă/Reia TOATE logurile (Consolă + Fișier + UI)
+    // --- MODIFICARE 2: Metode de setat/obținut nivelul de logare ---
+    void setLogLevel(LogLevel level) {
+        std::lock_guard<std::recursive_mutex> lock(mtxLog);
+        m_currentLogLevel = level;
+    }
+
+    LogLevel getLogLevel() const {
+        return m_currentLogLevel;
+    }
+
     void suspendLogging() { m_isSuspended = true; }
     void resumeLogging() { m_isSuspended = false; }
     bool isSuspended() const { return m_isSuspended; }
@@ -97,7 +96,6 @@ public:
     void addOutput(ILogOutput* output);
     void removeExtraOutput(ILogOutput* output) {
         std::lock_guard<std::recursive_mutex> lock(mtxLog);
-        // Folosim idiomul erase-remove pentru a scoate pointerul din vector
         m_extraOutputs.erase(
             std::remove(m_extraOutputs.begin(), m_extraOutputs.end(), output),
             m_extraOutputs.end()
@@ -107,13 +105,6 @@ public:
         std::lock_guard<std::recursive_mutex> lock(mtxLog);
         m_extraOutputs.clear();
     }
-
-private:
-    // Mutex (dacă e necesar, scoate comentariul și pune-l la începutul clasei)
-     //std::mutex mtxLog; 
-    
 };
-
-
 
 #endif // CONSOLE_MANAGER_HPP

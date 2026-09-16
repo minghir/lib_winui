@@ -28,20 +28,7 @@ m_isPressed(false)
         s_panelClassAtom = registerPanelClass(hInstance);
     }
 }
-/*
-// Implementation of the constructor with only an ID.
-vPanel::vPanel(HINSTANCE hInstance, const std::string& id, EventDispatcher& dispatcher)
-    : vContainer(id, 0, 0, 800, 600, dispatcher), // Call vContainer with default values.
-    m_hInstance(hInstance),
-    m_backgroundColor(RGB(240, 240, 240)),
-    m_isPressed(false)
-{
-    ConsoleManager::getInstance().log(L"[vPanel::Constructor] Called with a single parameter for ID: " + str_to_wstr(id));
-    if (s_panelClassAtom == 0) {
-        s_panelClassAtom = registerPanelClass(hInstance);
-    }
-}
-*/
+
 // --- The 'create' method (Crucial fix!) ---
 // This is the implementation of the pure virtual method from vControl.
 // It uses the dimensions stored in the base class to create the WinAPI window.
@@ -102,15 +89,6 @@ void vPanel::create(HWND parent) {
 }
 
 
-// --- Set background color ---
-/*
-void vPanel::setBackgroundColor(COLORREF color) {
-    m_backgroundColor = color;
-    if (m_handle) {
-        InvalidateRect(m_handle, nullptr, TRUE);
-    }
-}
-*/
 
 // --- 'onClick' method (overridden from vControl) ---
 void vPanel::onClick() {
@@ -235,46 +213,7 @@ LRESULT vPanel::handleMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
         SendMessage(hwnd, WM_VSCROLL, zDelta > 0 ? SB_LINEUP : SB_LINEDOWN, 0);
         return 0;
     }
-                      /*
-    case WM_ERASEBKGND: {
-        return 1;
-        // Handle WM_ERASEBKGND to avoid flicker and prepare for background drawing.
-        // This is crucial for panels to prevent child controls from flickering.
-        HDC hdc = (HDC)wParam;
-        RECT rect;
-        GetClientRect(hwnd, &rect);
-        HBRUSH hBrush = CreateSolidBrush(m_backgroundColor);
-        FillRect(hdc, &rect, hBrush);
-        DeleteObject(hBrush);
-        return 1; // Return 1 to indicate that we handled the erase background message.
-    }
-
-    case WM_PAINT: {
-        PAINTSTRUCT ps;
-        HDC hdc = BeginPaint(hwnd, &ps);
-
-        // Fill the background with the correct color only in the invalidated area.
-        HBRUSH hBrush = CreateSolidBrush(m_backgroundColor);
-        FillRect(hdc, &ps.rcPaint, hBrush);
-        DeleteObject(hBrush);
-
-        // If the panel is "pressed", draw a border.
-        if (m_isPressed) {
-            HPEN hPen = CreatePen(PS_SOLID, 2, RGB(0, 0, 0));
-            HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
-            HBRUSH hOldBrush = (HBRUSH)SelectObject(hdc, GetStockObject(NULL_BRUSH));
-
-            Rectangle(hdc, 0, 0, ps.rcPaint.right - ps.rcPaint.left, ps.rcPaint.bottom - ps.rcPaint.top);
-
-            SelectObject(hdc, hOldBrush);
-            SelectObject(hdc, hOldPen);
-            DeleteObject(hPen);
-        }
-
-        EndPaint(hwnd, &ps);
-        return 0;
-    }
-    */
+    /*
     case WM_COMMAND: {
         int controlID = LOWORD(wParam);
         int notificationCode = HIWORD(wParam);
@@ -312,7 +251,30 @@ LRESULT vPanel::handleMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
         }
         break;
     }
+    */
 
+    case WM_COMMAND: {
+        int controlID = LOWORD(wParam);
+        int notificationCode = HIWORD(wParam);
+
+        vControl* child = getChildByWin32Id(controlID);
+
+        if (child) {
+            // Filtre pentru vEdit
+            vEdit* editCtrl = dynamic_cast<vEdit*>(child);
+            if (editCtrl) {
+                if (notificationCode == EN_KILLFOCUS || notificationCode == EN_SETFOCUS) {
+                    return 0;
+                }
+            }
+
+            // REPARARE CRITICĂ: Folosim ruta oficială din vContainer care trimite HWND-ul corect al copilului
+            if (handleChildCommand(controlID, msg, wParam, lParam)) {
+                return 0;
+            }
+        }
+        break;
+    }
     case WM_LBUTTONDOWN: {
         // ... (existing code for LBUTTONDOWN) ...
         m_isPressed = true;
@@ -340,6 +302,7 @@ LRESULT vPanel::handleMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
         }
         return 0;
     }
+    /*
     case WM_SIZE: {
         // Las containerul să facă layout
         LRESULT r = vContainer::handleMessage(hwnd, msg, wParam, lParam);
@@ -352,6 +315,18 @@ LRESULT vPanel::handleMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
         return r;
 
     }
+    */
+    case WM_SIZE: {
+        // Permitem layout-ul doar dacă nu suntem în faza de scalare globală
+        if (!vContainer::s_isScaling) {
+            vContainer::handleMessage(hwnd, msg, wParam, lParam);
+        }
+
+        RECT rc;
+        GetClientRect(hwnd, &rc);
+        m_originalClientRect = rc;
+        return 0;
+    }
     case WM_DRAWITEM:
         return vContainer::handleMessage(hwnd, msg, wParam, lParam);
     default:
@@ -363,62 +338,3 @@ LRESULT vPanel::handleMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
     return vContainer::handleMessage(hwnd, msg, wParam, lParam);
    // return 0;
 }
-
-/*
-LRESULT vPanel::handleMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
-
-    
-        
-    if (vContainer::handleMessage(hwnd, msg, wParam, lParam) == 0) {
-        return 0;
-    }
-
-        // 2. Dacă am ajuns aici, mesajul este pentru vPanel însuși
-        switch (msg) {
-        case WM_ERASEBKGND: {
-            HDC hdc = (HDC)wParam;
-            RECT rect;
-            GetClientRect(hwnd, &rect);
-            HBRUSH hBrush = CreateSolidBrush(m_backgroundColor);
-            FillRect(hdc, &rect, hBrush);
-            DeleteObject(hBrush);
-            return 1;
-        }
-        case WM_PAINT: {
-            PAINTSTRUCT ps;
-            HDC hdc = BeginPaint(hwnd, &ps);
-            HBRUSH hBrush = CreateSolidBrush(m_backgroundColor);
-            FillRect(hdc, &ps.rcPaint, hBrush);
-            DeleteObject(hBrush);
-            // ... restul logicii de desenare ...
-            EndPaint(hwnd, &ps);
-            return 0;
-        }
-        case WM_LBUTTONDOWN:
-            m_isPressed = true;
-            SetCapture(hwnd);
-            InvalidateRect(hwnd, nullptr, TRUE);
-            return 0;
-
-        case WM_LBUTTONUP:
-            if (m_isPressed) {
-                m_isPressed = false;
-                ReleaseCapture();
-                InvalidateRect(hwnd, nullptr, TRUE);
-                // ... onMouseClick logic ...
-            }
-            return 0;
-
-        case WM_SIZE: {
-            // Tratăm WM_SIZE special: întâi layout-ul copiilor, apoi logica de panel
-            LRESULT r = vContainer::handleMessage(hwnd, msg, wParam, lParam);
-            GetClientRect(hwnd, &m_originalClientRect);
-            return r;
-        }
-        }
-    
-
-    // 3. Mesaje reziduale (default)
-    return vContainer::handleMessage(hwnd, msg, wParam, lParam);
-}
-*/

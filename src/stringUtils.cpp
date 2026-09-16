@@ -1,5 +1,5 @@
 #include "stringUtils.hpp"
-
+#include "ui\ConsoleManager.hpp"
 #include <fstream>
 #include <iostream>
 #include <vector>
@@ -295,17 +295,6 @@ std::string rpl_str_in_str(std::string str, const std::string& from, const std::
     return str;
 }
 
-/*
-std::wstring wstr_trim(const std::wstring& str) {
-    std::wstring t_str = str;
-    size_t start = t_str.find_first_not_of(L" \t\n\r\0");
-    size_t end = t_str.find_last_not_of(L" \t\n\r\0");
-    
-    t_str.erase(std::remove(t_str.begin(), t_str.end(), L'\0'), t_str.end());
-
-    return (start == std::wstring::npos || end == std::wstring::npos) ? L"" : t_str.substr(start, end - start + 1);
-}
-*/
 
 std::wstring wstr_trim(const std::wstring& str) {
 
@@ -667,7 +656,7 @@ std::wstring to_wstring_precise2(long double value, int precision) {
 
 
 
-
+/*
 std::wstring normalize_number(const std::wstring& ws, int precision) {
     try {
         long double value = std::stold(ws);  // acceptă și notația științifică
@@ -677,6 +666,39 @@ std::wstring normalize_number(const std::wstring& ws, int precision) {
     }
     catch (...) {
         throw std::runtime_error("Normalizarea a eșuat: șir invalid.");
+        //return L"";
+    }
+}
+*/
+
+std::wstring normalize_number(const std::wstring& ws, int precision) {
+    // 1. Eliminăm spațiile de la început și sfârșit (trim)
+    std::wstring clean = trim(ws);
+
+    // 2. Dacă șirul este gol sau conține doar spații/NULL, returnăm 0
+    if (clean.empty() || clean == L"NULL" || clean == L"null") {
+        std::wostringstream woss;
+        woss << std::fixed << std::setprecision(precision) << 0.0;
+        return woss.str();
+    }
+
+    // 3. Înlocuim virgula cu punct pentru formatul standard C++
+    std::replace(clean.begin(), clean.end(), L',', L'.');
+
+    try {
+        size_t processed = 0;
+        long double value = std::stold(clean, &processed);
+
+        std::wostringstream woss;
+        woss << std::fixed << std::setprecision(precision) << value;
+        return woss.str();
+    }
+    catch (const std::exception& e) {
+        LOG_ERROR(L"[normalize_number] Conversie eșuată pentru valoarea: '" + ws + L"'. Returnez 0.00");
+
+        std::wostringstream woss;
+        woss << std::fixed << std::setprecision(precision) << 0.0;
+        return woss.str();
     }
 }
 
@@ -932,44 +954,6 @@ std::wstring convertSingleByteToWideChar(const std::string& input, unsigned int 
     return output;
 }
 
-/*
-std::vector<std::wstring> split_to_words(const std::wstring& text) {
-    std::vector<std::wstring> tokens;
-    std::wstring currentWord;
-
-    for (wchar_t ch : text) {
-        if (ch == L'\n' || ch == L'\f' || ch == L'\t') { // ⭐ ADĂUGARE L'\f' AICI
-            // 1. Dacă există un cuvânt acumulat, adaugă-l
-            if (!currentWord.empty()) {
-                tokens.push_back(currentWord);
-                currentWord.clear();
-            }
-            // 2. Adaugă \n sau \f ca token separat
-            tokens.push_back(std::wstring(1, ch)); // Creează un string de lungime 1
-        }
-        else if (iswspace(ch)) {
-            // Dacă întâlnești orice alt spațiu alb (spațiu, tab, etc.):
-            // Dacă există un cuvânt acumulat, adaugă-l.
-            if (!currentWord.empty()) {
-                tokens.push_back(currentWord);
-                currentWord.clear();
-            }
-            // Spațiile albe simple nu sunt adăugate ca token-uri.
-        }
-        else {
-            // Dacă este un caracter normal (non-spațiu, non-\n), adaugă-l la cuvântul curent.
-            currentWord += ch;
-        }
-    }
-
-    // 3. Adaugă ultimul cuvânt rămas (dacă nu s-a terminat cu un spațiu/newline)
-    if (!currentWord.empty()) {
-        tokens.push_back(currentWord);
-    }
-
-    return tokens;
-}
-*/
 
 std::vector<std::wstring> split_to_words(const std::wstring& text) {
     std::vector<std::wstring> tokens;
@@ -1012,59 +996,7 @@ std::vector<std::wstring> split_to_words(const std::wstring& text) {
 
     return tokens;
 }
-/*
-std::wstring normalizeSpaces(const std::wstring& input) {
-    if (input.empty()) return L"";
 
-    std::wstring result;
-    bool inQuotes = false;
-    wchar_t quoteChar = 0;
-    bool lastWasSpace = false;
-
-    // 1. Trim de început
-    size_t start = input.find_first_not_of(L" \t\r\n");
-    if (start == std::wstring::npos) return L"";
-
-    // 2. Trim de sfârșit (folosit pentru limitarea buclei)
-    size_t end = input.find_last_not_of(L" \t\r\n");
-
-    for (size_t i = start; i <= end; ++i) {
-        wchar_t c = input[i];
-
-        // Detecție ghilimele (suportă și " și ')
-        if ((c == L'\"' || c == L'\'') && (i == 0 || input[i - 1] != L'\\')) {
-            if (!inQuotes) {
-                inQuotes = true;
-                quoteChar = c;
-            }
-            else if (c == quoteChar) {
-                inQuotes = false;
-            }
-            result += c;
-            lastWasSpace = false;
-        }
-        // Dacă suntem în interiorul ghilimelelor, copiem totul așa cum este
-        else if (inQuotes) {
-            result += c;
-            lastWasSpace = false;
-        }
-        // Dacă suntem în exterior, gestionăm spațiile multiple
-        else {
-            if (std::iswspace(c)) {
-                if (!lastWasSpace) {
-                    result += L' '; // Transformăm orice whitespace (\t, \r) în spațiu simplu
-                    lastWasSpace = true;
-                }
-            }
-            else {
-                result += c;
-                lastWasSpace = false;
-            }
-        }
-    }
-    return result;
-}
-*/
 std::wstring normalizeSpaces(const std::wstring& input) {
     if (input.empty()) return L"";
 
@@ -1220,4 +1152,15 @@ bool startsWith(const std::wstring& text, const std::wstring& prefix, bool ignor
     }
 
     return text.compare(0, prefix.size(), prefix) == 0;
+}
+
+
+void replaceAll(std::wstring& s, const std::wstring& from, const std::wstring& to)
+{
+    if (from.empty()) return;
+    size_t pos = 0;
+    while ((pos = s.find(from, pos)) != std::wstring::npos) {
+        s.replace(pos, from.length(), to);
+        pos += to.length();
+    }
 }

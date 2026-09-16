@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<vForm table="utilizatori" primaryKey="id_user">
+    <controls>
+        <control field="numeutilizator" label="Denuimire prenume:" type="edit" />
+        <control field="username" label="Utilizator:" type="edit" />
+        <control field="passw" label="Parola:" type="passw" />
+		<control field="passw" label="Confirma parola:" type="passw" />
+		<control field="grupid4" label="Grup utilizatori4:" type="combo" />
+        <control field="rol" label="Grup utilizatori:" type="combo" />
+    </controls>
+</vForm>

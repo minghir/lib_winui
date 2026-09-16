@@ -79,21 +79,30 @@ std::string convertDateFormat(const std::string& dateStr, const std::string& inp
 #include "dateUtils.hpp"
 
 std::wstring convertDateFormatW(const std::wstring& dateStr, const std::wstring& inputFormat, const std::wstring& outputFormat) {
-    // Verificăm dacă lungimile coincid pentru a evita substr pe index greșit
-    if (dateStr.length() != inputFormat.length()) return dateStr;
+    if (dateStr.length() != inputFormat.length() || dateStr.empty()) return dateStr;
 
     std::wstring y = L"", m = L"", d = L"";
 
-    // 1. Parsăm dateStr căutând pozițiile formatelor în inputFormat
-    size_t yPos = inputFormat.find(L"yyyy");
+    // 1. Parsăm anul - verificăm întâi formatul lung de 4 caractere, apoi cel de 2
+    size_t yLongPos = inputFormat.find(L"yyyy");
+    size_t yShortPos = inputFormat.find(L"yy");
+
+    if (yLongPos != std::wstring::npos) {
+        y = dateStr.substr(yLongPos, 4);
+    }
+    else if (yShortPos != std::wstring::npos) {
+        // Dacă e format scurt (ex: "26"), îi adăugăm prefixul "20" -> "2026"
+        y = L"20" + dateStr.substr(yShortPos, 2);
+    }
+
+    // 2. Parsăm luna și ziua
     size_t mPos = inputFormat.find(L"mm");
     size_t dPos = inputFormat.find(L"dd");
 
-    if (yPos != std::wstring::npos) y = dateStr.substr(yPos, 4);
     if (mPos != std::wstring::npos) m = dateStr.substr(mPos, 2);
     if (dPos != std::wstring::npos) d = dateStr.substr(dPos, 2);
 
-    // 2. Construim output-ul
+    // 3. Construim output-ul înlocuind marcajele în outputFormat
     std::wstring result = outputFormat;
 
     auto replaceAllW = [&](std::wstring& str, const std::wstring& from, const std::wstring& to) {

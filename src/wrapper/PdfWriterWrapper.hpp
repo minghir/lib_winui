@@ -1,6 +1,7 @@
 ﻿// PdfWriterWrapper.hpp
 
 #pragma once
+#include <OutputStringBufferStream.h>
 
 #include "../stringUtils.hpp"
 #include <PDFWriter.h>
@@ -15,6 +16,8 @@
 
 
 #include "IByteReaderWithPosition.h"
+#include "IByteWriterWithPosition.h"
+
 #include <string>
 
 struct LineToken {
@@ -91,6 +94,55 @@ public:
     }
 };
 
+// Clasa custom pentru scriere PDF direct în RAM
+class StringWriter : public IByteWriterWithPosition {
+private:
+    std::string m_buffer;
+    LongFilePositionType m_position;
+
+public:
+    StringWriter() : m_position(0) {}
+    virtual ~StringWriter() {}
+
+    // 1. Implementare din IByteWriter
+    virtual LongBufferSizeType Write(const Byte* inBuffer, LongBufferSizeType inBufferSize) {
+        if (inBufferSize > 0 && inBuffer != nullptr) {
+            if (m_position + inBufferSize > m_buffer.size()) {
+                m_buffer.resize((size_t)(m_position + inBufferSize));
+            }
+            std::copy(inBuffer, inBuffer + inBufferSize, m_buffer.begin() + m_position);
+            m_position += inBufferSize;
+        }
+        return inBufferSize;
+    }
+
+    // 2. Implementare din IByteWriterWithPosition
+    virtual LongFilePositionType GetCurrentPosition() {
+        return m_position;
+    }
+
+    virtual void SetPosition(LongFilePositionType inOffsetFromStart) {
+        if (inOffsetFromStart > m_buffer.size()) {
+            m_buffer.resize((size_t)inOffsetFromStart);
+        }
+        m_position = inOffsetFromStart;
+    }
+
+    virtual void SetPositionFromEnd(LongFilePositionType inOffsetFromEnd) {
+        if (inOffsetFromEnd <= m_buffer.size()) {
+            m_position = m_buffer.size() - inOffsetFromEnd;
+        }
+    }
+
+    // Uneltele noastre ajutătoare
+    const std::string& getString() const { return m_buffer; }
+
+    std::vector<uint8_t> getBuffer() const {
+        return std::vector<uint8_t>(m_buffer.begin(), m_buffer.end());
+    }
+};
+
+
 struct pdfFontKey {
     // Membrii corespund direct proprietăților CSS
     std::wstring family;
@@ -129,6 +181,11 @@ private:
     unsigned int imageCounter = 0;
 
     
+    // ⭐ MEMBRII NOI PENTRU SCRIERE ÎN MEMORIE (RAM)
+    std::stringbuf m_memoryBuffer;
+    std::unique_ptr<StringWriter> m_memoryStream;
+    bool m_isInMemoryMode = false;
+
 
 public:
     PdfWriterWrapper();// = default;
@@ -246,6 +303,26 @@ public:
     void logFontCache() const;
 
   
+
+    // ⭐ METODELE NOILE PENTRU MEMORIE
+    bool initializeToMemory(double width, double height);
+    std::vector<uint8_t> getMemoryPdfBuffer() const {
+        if (!m_memoryStream) return {};
+        return m_memoryStream->getBuffer();
+    }
+
+    std::vector<uint8_t> getBuffer() const {
+        return getMemoryPdfBuffer();
+    }
+
+    std::string getMemoryData() const {
+        if (m_memoryStream) {
+            // PDFHummus StringWriter moștenește un buffer ale cărui date le putem returna
+            return m_memoryStream->getString();
+        }
+        return "";
+    }
+
 private:
     PDFUsedFont* getCachedFont(const std::wstring& fontName);
 

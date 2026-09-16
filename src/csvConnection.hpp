@@ -61,6 +61,7 @@ public:
 
     // execut query
     bool execQuery(const std::wstring& query, std::string stm_name = "default" ) override;
+    bool execQuery(const std::wstring& query, const std::vector<std::wstring>& params, std::string stm_name = "default") override;
     long long execCountQuery(const std::wstring& countQuery) override;
 
     int getRowCount(std::string stm_name = "default") override;

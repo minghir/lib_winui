@@ -96,3 +96,8 @@ std::wstring vRichEdit::getText() const {
     GetWindowText(m_handle, buf.data(), len + 1);
     return std::wstring(buf.data());
 }
+
+void vRichEdit::setReadOnly(bool readOnly) {
+    m_isReadOnly = readOnly;
+    if (m_handle) SendMessage(m_handle, EM_SETREADONLY, (WPARAM)readOnly, 0);
+}

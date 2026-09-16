@@ -99,6 +99,7 @@ void app_reopen();
 void app_close();
 
 //int winemail();
+int app_open_from_memory(const uint8_t* buffer, size_t bufferSize);
 
 #ifdef __cplusplus
 }

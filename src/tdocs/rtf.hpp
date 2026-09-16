@@ -109,6 +109,9 @@ struct RtfCell {
     //std::vector<RtfParagraph> content; // O celulă conține paragrafe
     int colspan = 1;
     int rowspan = 1;
+    bool isMergeFirst = false; // ⭐ NOU: Început de comasare orizontală (\clmgf)
+    bool isMergeNext = false;  // ⭐ NOU: Continuare comasare orizontală (\clmrg)
+
     Style style;
 
     CellBorders borders;
@@ -127,15 +130,15 @@ struct RtfCell {
 
 struct RtfRow {
     std::vector<RtfCell> cells; // O celulă conține paragrafe
+    std::vector<double> columnWidthsPt;
+    bool isHeader = false;
 
     RtfRow() = default;
-
     RtfRow(const RtfRow&) = delete;
     RtfRow& operator=(const RtfRow&) = delete;
-
     RtfRow(RtfRow&&) = default;
     RtfRow& operator=(RtfRow&&) = default;
-    
+  
 };
 
 struct RtfTable : public RtfBlock {
@@ -169,6 +172,9 @@ struct RtfParseState {
     CellBorders currentCellBorders;
     CellPadding currentCellPadding;
 
+    bool currentCellMergeFirst = false; // ⭐ NOU
+    bool currentCellMergeNext = false;  // ⭐ NOU
+
     // ⭐ NOU: Flag-uri pentru pozițiile de bordură așteptate
     bool borderLeftPending = false;
     bool borderRightPending = false;
@@ -187,6 +193,12 @@ struct RtfParseState {
     bool isParsingFooter = false;
     bool isParsingHeader = false;
 
+    std::vector<bool> footerStack;
+    std::vector<bool> headerStack;
+
+    int ucCount = 1;             // Implicat în RTF: \uc1 (1 caracter fallback)
+    int skipCharsRemaining = 0;  // Câte caractere fallback trebuie sărite după \uN
+
     RtfParseState() = default;
     RtfParseState(RtfPage& page)
         : pageConfig(page) {
@@ -196,6 +208,9 @@ struct RtfParseState {
         // ... etc.
         this->currentStyle = this->globalDefaultStyle;
         // Inițializare implicită
+
+        this->ucCount = 1;
+        this->skipCharsRemaining = 0;
     }
     RtfParseState(const RtfParseState&) = delete; // Nu vrem să copiem starea
     RtfParseState(RtfParseState&&) = default;
@@ -224,6 +239,31 @@ public:
     Rtf() = default;
     bool load(const std::wstring& filePath);
 
+    bool loadFromString(const std::string& rtfContent) {
+        if (rtfContent.empty()) {
+            return false;
+        }
+
+        // Curățăm starea anterioară
+        blocks.clear();
+        pageConfigurations.clear();
+        headerBlocks.clear();
+        footerBlocks.clear();
+
+        // Apelăm parser-ul intern
+        blocks = parseRtfContent(rtfContent);
+
+        return !blocks.empty();
+    }
+
+    // ⭐ NOU (Opțional): Suport pentru std::vector<uint8_t> / std::vector<char>
+    bool loadFromMemory(const std::vector<uint8_t>& buffer) {
+        if (buffer.empty()) return false;
+        std::string content(reinterpret_cast<const char*>(buffer.data()), buffer.size());
+        return loadFromString(content);
+    }
+
+
     void addBlock(std::unique_ptr<RtfBlock> block) {
         blocks.push_back(std::move(block));
     }
@@ -249,11 +289,13 @@ public:
     }
 
     const std::vector<std::unique_ptr<RtfBlock>>& getFooterBlocks() const { return footerBlocks; }
+    const std::vector<std::unique_ptr<RtfBlock>>& getHeaderBlocks() const { return headerBlocks; }
 
     private:
-        std::unique_ptr<RtfBlock> finalizeCurrentParagraph(RtfParseState& state);
-        void handleControlWord(RtfParseState& state, const std::wstring& word, int param, std::vector<std::unique_ptr<RtfBlock>>& parsedBlocks);
-        void finalizeCurrentSpan(RtfParseState& state);
+private:
+    std::unique_ptr<RtfBlock> finalizeCurrentParagraph(RtfParseState& state, std::vector<std::unique_ptr<RtfBlock>>& parsedBlocks);
+    void handleControlWord(RtfParseState& state, const std::wstring& word, int param, std::vector<std::unique_ptr<RtfBlock>>& parsedBlocks);
+    void finalizeCurrentSpan(RtfParseState& state);
 
 
         // ⭐ NOU: Funcție pentru a adăuga o nouă configurație de pagină

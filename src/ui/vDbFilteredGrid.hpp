@@ -14,17 +14,10 @@
 #include <vector>
 #include <memory>
 #include <functional>
-#include <atomic>   // <--- ADAUGĂ ACEASTĂ LINIE PENTRU std::atomic
-#include <thread>   // <--- ADAUGĂ ACEASTĂ LINIE PENTRU std::thread
+#include <atomic>   
+#include <thread>   
 
-/*
-enum class DbDialogMode {
-    Update,
-    Insert,
-    Delete,
-    View
-};
-*/
+
 using OnContextMenuExtendCallback = std::function<void(vPopupMenu&, int, const std::wstring&)>;
 
 class vDbFilteredGrid : public vPanel {
@@ -176,14 +169,10 @@ private:
 
     std::string m_uniqueIdField;
     std::wstring m_uniqueIdValue;
-   
-    
-   
 
     LRESULT handleMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) override;
 
     std::map<std::wstring, std::wstring> m_columnLabels;
-
 
     int m_recordsPerPage = 100; // Numărul de înregistrări pe pagină
     int m_currentPage = 0;             // Pagina curentă (începe de la 0)
@@ -199,16 +188,7 @@ private:
 
     std::unique_ptr<vWindow> m_activeDetailWin;
 
-//   vButton* m_clearFiltersBtn = nullptr;
-//    vButton* m_applyFiltersBtn = nullptr;
-//    vButton* m_addRecordBtn = nullptr;
-
     vStatusBar* m_statusBar = nullptr;
-    
-    //vDbFormPanel* m_DbFormPanel = nullptr;
-    //vDbEditDialog* m_EditDialog = nullptr;
-    //vWindow* m_customEditWindow = nullptr;
-
     
     int m_sortedColumn = -1;
     bool m_sortAscending = true;

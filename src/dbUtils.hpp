@@ -4,6 +4,7 @@
 
 #include <iostream>
 #include <vector>
+#include <map>
 #include <string>
 #include <sstream>
 
@@ -43,6 +44,8 @@ std::wstring getDbValueFromQuery(dbConnection* db,
     const std::wstring& query,
     const std::wstring& column);
 
-
+std::map<std::wstring, std::wstring> getDbRowMapFromQuery(
+    dbConnection* db,
+    const std::wstring& query);
 
 #endif

@@ -86,6 +86,7 @@ static LRESULT CALLBACK viewproc(HWND, UINT, WPARAM, LPARAM);
 static int timer_pending = 0;
 static char *password = NULL;
 
+static unsigned char* persistent_pdf_buffer = NULL;
 
 static int justcopied = 0;
 //static int window_opened = 0;
@@ -1025,18 +1026,21 @@ void app_close() {
 	do_close(&gapp);
 }
 
- void
-	 do_close(pdfapp_t* app)
- {	
-	 fz_context* ctx = app->ctx;
-	 char* fn = app->docpath;
-	 
-	 pdfapp_close(app);
-	 free(dibinf);
-	 fz_drop_context(ctx);
+void do_close(pdfapp_t* app)
+{
+	fz_context* ctx = app->ctx;
 
-	 //if(delete_file_on_exit)
-	//	winremovefile(fn);
+	pdfapp_close(app);
+
+	if (persistent_pdf_buffer) {
+		free(persistent_pdf_buffer);
+		persistent_pdf_buffer = NULL;
+	}
+
+	if (ctx) {
+		fz_drop_context(ctx);
+		app->ctx = NULL; // IMPORTANT: Setăm pe NULL ca să știm că data viitoare trebuie creat un context nou!
+	}
 }
 
 void winclose(pdfapp_t *app)
@@ -1110,7 +1114,7 @@ void windrawstring(pdfapp_t *app, int x, int y, char *s)
 		windrawstring(&gapp, 10, 20, buf);
 	}
 }
-
+ /*
  void winblit()
 {
 	int image_w = fz_pixmap_width(gapp.ctx, gapp.image);
@@ -1178,7 +1182,7 @@ void windrawstring(pdfapp_t *app, int x, int y, char *s)
 	else
 		brush = bgbrush;
 
-	/* Grey background */
+
 	r.top = 0; r.bottom = gapp.winh;
 	r.left = 0; r.right = x0;
 	FillRect(hdc, &r, brush);
@@ -1192,6 +1196,192 @@ void windrawstring(pdfapp_t *app, int x, int y, char *s)
 
 	winblitsearch();
 }
+*/
+ void winblit(void)
+ {
+	 int image_w = 0;
+	 int image_h = 0;
+	 int image_n = 0;
+	 unsigned char* samples = NULL;
+	 int x0 = gapp.panx;
+	 int y0 = gapp.pany;
+	 int x1 = gapp.panx;
+	 int y1 = gapp.pany;
+	 RECT r;
+	 HBRUSH brush;
+
+	 if (hdc && gapp.image)
+	 {
+		 image_w = fz_pixmap_width(gapp.ctx, gapp.image);
+		 image_h = fz_pixmap_height(gapp.ctx, gapp.image);
+		 image_n = fz_pixmap_components(gapp.ctx, gapp.image);
+		 samples = fz_pixmap_samples(gapp.ctx, gapp.image);
+
+		 x1 = gapp.panx + image_w;
+		 y1 = gapp.pany + image_h;
+
+		 if (gapp.iscopying || justcopied)
+		 {
+			 pdfapp_invert(&gapp, gapp.selr);
+			 justcopied = 1;
+		 }
+
+		 pdfapp_inverthit(&gapp);
+
+		 // Configurare header DIB
+		 dibinf->bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+		 dibinf->bmiHeader.biWidth = image_w;
+		 dibinf->bmiHeader.biHeight = -image_h; // Top-Down
+		 dibinf->bmiHeader.biPlanes = 1;
+		 dibinf->bmiHeader.biCompression = BI_RGB;
+
+		 size_t total_pixels = (size_t)image_w * image_h;
+
+		 // Tratare în funcție de numărul de componente/canale (image_n)
+		 if (image_n == 4) // RGBA sau RGBX (32 biți)
+		 {
+			 dibinf->bmiHeader.biBitCount = 32;
+			 dibinf->bmiHeader.biSizeImage = (DWORD)(total_pixels * 4);
+
+			 // Swapping din RGB(A) în BGR(A) pentru Windows GDI
+			 unsigned char* bgr_buf = (unsigned char*)malloc(total_pixels * 4);
+			 if (bgr_buf)
+			 {
+				 unsigned char* s = samples;
+				 unsigned char* d = bgr_buf;
+				 for (size_t i = 0; i < total_pixels; i++)
+				 {
+					 d[0] = s[2]; // B
+					 d[1] = s[1]; // G
+					 d[2] = s[0]; // R
+					 d[3] = s[3]; // A
+					 s += 4;
+					 d += 4;
+				 }
+
+				 SetDIBitsToDevice(hdc,
+					 gapp.panx, gapp.pany, image_w, image_h,
+					 0, 0, 0, image_h, bgr_buf,
+					 dibinf, DIB_RGB_COLORS);
+
+				 free(bgr_buf);
+			 }
+		 }
+		 else if (image_n == 3) // RGB standard (24 biți)
+		 {
+			 dibinf->bmiHeader.biBitCount = 24;
+			 dibinf->bmiHeader.biSizeImage = (DWORD)(total_pixels * 3);
+
+			 // Swapping din RGB în BGR
+			 unsigned char* bgr_buf = (unsigned char*)malloc(total_pixels * 3);
+			 if (bgr_buf)
+			 {
+				 unsigned char* s = samples;
+				 unsigned char* d = bgr_buf;
+				 for (size_t i = 0; i < total_pixels; i++)
+				 {
+					 d[0] = s[2]; // B
+					 d[1] = s[1]; // G
+					 d[2] = s[0]; // R
+					 s += 3;
+					 d += 3;
+				 }
+
+				 SetDIBitsToDevice(hdc,
+					 gapp.panx, gapp.pany, image_w, image_h,
+					 0, 0, 0, image_h, bgr_buf,
+					 dibinf, DIB_RGB_COLORS);
+
+				 free(bgr_buf);
+			 }
+		 }
+		 else if (image_n == 2) // Gray + Alpha (Convertit în BGRA 32 biți)
+		 {
+			 dibinf->bmiHeader.biBitCount = 32;
+			 dibinf->bmiHeader.biSizeImage = (DWORD)(total_pixels * 4);
+
+			 unsigned char* color = (unsigned char*)malloc(total_pixels * 4);
+			 if (color)
+			 {
+				 unsigned char* s = samples;
+				 unsigned char* d = color;
+				 for (size_t i = 0; i < total_pixels; i++)
+				 {
+					 d[0] = s[0]; // Gray -> B
+					 d[1] = s[0]; // Gray -> G
+					 d[2] = s[0]; // Gray -> R
+					 d[3] = s[1]; // Alpha
+					 s += 2;
+					 d += 4;
+				 }
+
+				 SetDIBitsToDevice(hdc,
+					 gapp.panx, gapp.pany, image_w, image_h,
+					 0, 0, 0, image_h, color,
+					 dibinf, DIB_RGB_COLORS);
+
+				 free(color);
+			 }
+		 }
+		 else if (image_n == 1) // Grayscale curat (8 biți convertiți la 24 biți)
+		 {
+			 dibinf->bmiHeader.biBitCount = 24;
+			 dibinf->bmiHeader.biSizeImage = (DWORD)(total_pixels * 3);
+
+			 unsigned char* color = (unsigned char*)malloc(total_pixels * 3);
+			 if (color)
+			 {
+				 unsigned char* s = samples;
+				 unsigned char* d = color;
+				 for (size_t i = 0; i < total_pixels; i++)
+				 {
+					 d[0] = *s;
+					 d[1] = *s;
+					 d[2] = *s;
+					 s++;
+					 d += 3;
+				 }
+
+				 SetDIBitsToDevice(hdc,
+					 gapp.panx, gapp.pany, image_w, image_h,
+					 0, 0, 0, image_h, color,
+					 dibinf, DIB_RGB_COLORS);
+
+				 free(color);
+			 }
+		 }
+
+		 pdfapp_inverthit(&gapp);
+
+		 if (gapp.iscopying || justcopied)
+		 {
+			 pdfapp_invert(&gapp, gapp.selr);
+			 justcopied = 1;
+		 }
+	 }
+
+	 if (gapp.invert)
+		 brush = (HBRUSH)GetStockObject(BLACK_BRUSH);
+	 else
+		 brush = bgbrush;
+
+	 /* Grey background - UMBLĂ DOAR ÎN AFARA IMAGINII */
+	 r.top = 0; r.bottom = gapp.winh;
+	 r.left = 0; r.right = x0;
+	 FillRect(hdc, &r, brush);
+
+	 r.left = x1; r.right = gapp.winw;
+	 FillRect(hdc, &r, brush);
+
+	 r.left = 0; r.right = gapp.winw;
+	 r.top = 0; r.bottom = y0;
+	 FillRect(hdc, &r, brush);
+
+	 r.top = y1; r.bottom = gapp.winh;
+	 FillRect(hdc, &r, brush);
+
+	 winblitsearch();
+ }
 
 void winresize(pdfapp_t *app, int w, int h)
 {
@@ -1377,7 +1567,7 @@ frameproc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 		}
 		break;
 
-	case WM_SIZE:
+	/*case WM_SIZE:
 	{
 		// More generally, you should use GetEffectiveClientRect
 		// if you have a toolbar etc.
@@ -1389,6 +1579,29 @@ frameproc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 			gapp.shrinkwrap = 0;
 		return 0;
 	}
+	*/
+	case WM_SIZE:
+		if (wParam == SIZE_MINIMIZED)
+			return 0;
+
+		if (wParam == SIZE_MAXIMIZED)
+			gapp.shrinkwrap = 0;
+
+		// 1. Redimensionează fereastra copil (view) astfel încât să umple frame-ul
+		if (hwndview)
+		{
+			MoveWindow(hwndview, 0, 0, LOWORD(lParam), HIWORD(lParam), TRUE);
+		}
+
+		// 2. Notifică pdfapp despre noua dimensiune
+		pdfapp_onresize(&gapp, LOWORD(lParam), HIWORD(lParam));
+
+		// 3. Re-randează pagina (WM_APP declanșează pdfapp_reloadpage)
+		if (hwndview)
+		{
+			SendMessage(hwndview, WM_APP, 0, 0);
+		}
+		break;
 
 	case WM_SIZING:
 		gapp.shrinkwrap = 0;
@@ -1442,6 +1655,7 @@ viewproc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 	switch (message)
 	{
+		/*
 	case WM_SIZE:
 		if (wParam == SIZE_MINIMIZED)
 			return 0;
@@ -1453,6 +1667,16 @@ viewproc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 	/* Paint events are low priority and automagically catenated
 	 * so we don't need to do any fancy waiting to defer repainting.
 	 */
+
+	case WM_SIZE:
+		if (wParam == SIZE_MINIMIZED)
+			return 0;
+		if (wParam == SIZE_MAXIMIZED)
+			gapp.shrinkwrap = 0;
+
+		pdfapp_onresize(&gapp, LOWORD(lParam), HIWORD(lParam));
+		SendMessage(hwnd, WM_APP, 0, 0); // Re-randează pagina la noile dimensiuni
+		break;
 	case WM_PAINT:
 	{
 		//puts("WM_PAINT");
@@ -1504,7 +1728,7 @@ viewproc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 		handlemouse(x, y, 0, 0);
 		return 0;
 
-	/* Mouse wheel */
+		/* Mouse wheel */
 
 	case WM_MOUSEWHEEL:
 		if ((signed short)HIWORD(wParam) <= 0)
@@ -1519,7 +1743,7 @@ viewproc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 		}
 		return 0;
 
-	/* Timer */
+		/* Timer */
 	case WM_TIMER:
 		if (wParam == OUR_TIMER_ID && timer_pending && gapp.presentation_mode)
 		{
@@ -1530,7 +1754,7 @@ viewproc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 		}
 		break;
 
-	/* Keyboard events */
+		/* Keyboard events */
 
 	case WM_KEYDOWN:
 		/* only handle special keys */
@@ -1564,7 +1788,7 @@ viewproc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 		}
 		break;
 
-	/* unicode encoded chars, including escape, backspace etc... */
+		/* unicode encoded chars, including escape, backspace etc... */
 	case WM_CHAR:
 		if (wParam < 256)
 		{
@@ -1573,12 +1797,18 @@ viewproc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 		}
 		return 0;
 
-	/* We use WM_APP to trigger a reload and repaint of a page */
+		/* We use WM_APP to trigger a reload and repaint of a page */
+		/*
 	case WM_APP:
 		pdfapp_reloadpage(&gapp);
 		break;
+		*/
+	case WM_APP:
+		if (gapp.doc && gapp.ctx) {
+			pdfapp_reloadpage(&gapp);
+		}
+		break;
 	}
-
 	fflush(stdout);
 
 	/* Pass on unhandled events to Windows */
@@ -1643,7 +1873,258 @@ get_system_dpi(void)
 	 return 0;
  }
  */
+
+ /*
+ // Funcție C pură pentru deschidere directă din RAM
+ int app_open_from_memory(const unsigned char* buffer, size_t bufferSize) {
+	 fz_context* ctx;
+	 fz_stream* stream;
+
+	 if (!buffer || bufferSize == 0) {
+		 OutputDebugStringA("[MuPDF] Buffer-ul de memorie transmis este invalid sau gol!\n");
+		 return 0;
+	 }
+
+	 ctx = gapp.ctx;
+	 if (!ctx) {
+		 OutputDebugStringA("[MuPDF] Contextul fz_context nu este inițializat!\n");
+		 return 0;
+	 }
+
+	 // 1. Închidem documentul precedent dacă era deschis
+	 if (gapp.doc) {
+		 pdfapp_close(&gapp);
+		 pdfapp_init(ctx, &gapp);
+	 }
+
+	 // 2. Deschidem stream-ul din RAM
+	 stream = fz_open_memory(ctx, buffer, bufferSize);
+	 if (!stream) {
+		 OutputDebugStringA("[MuPDF] fz_open_memory a eșuat!\n");
+		 return 0;
+	 }
+
+	 // 3. Încărcăm documentul PDF din stream
+	 fz_try(ctx) {
+		 gapp.doc = fz_open_document_with_stream(ctx, "pdf", stream);
+	 }
+	 fz_always(ctx) {
+		 fz_drop_stream(ctx, stream);
+	 }
+	 fz_catch(ctx) {
+		 OutputDebugStringA("[MuPDF] fz_open_document_with_stream a eșuat!\n");
+		 return 0;
+	 }
+
+	 if (!gapp.doc) {
+		 OutputDebugStringA("[MuPDF] gapp.doc este NULL după deschiderea din stream!\n");
+		 return 0;
+	 }
+
+	 // 4. Configurare titlu și pagini
+	 gapp.docpath = (char*)"memory.pdf";
+	 gapp.doctitle = (char*)"Raport ANC";
+	 gapp.pagecount = fz_count_pages(ctx, gapp.doc);
+	 gapp.pageno = 1;
+
+	 // 5. Randăm prima pagină folosind functia standard pdfapp_onresize
+	 // Folosim dimensiunile ferestrei sau valori implicite dacă fereastra nu a fost încă desenată
+	 int w = (gapp.winw > 0) ? gapp.winw : 600;
+	 int h = (gapp.winh > 0) ? gapp.winh : 800;
+	 pdfapp_onresize(&gapp, w, h);
+
+	 // 6. Notificăm fereastra View să se redeseneze
+	 winrepaint(&gapp);
+
+	 return 1;
+ }
+ */// 1. Declară o variabilă globală sau statică pentru a păstra buffer-ul în memorie
  
+int app_open_from_memory(const unsigned char* buffer, size_t bufferSize) {
+	HWND hFrame = get_frame_win();
+
+	// 1. Verificăm dacă fereastra cadre există ȘI este activă/vizibilă
+	if (hFrame != NULL && IsWindow(hFrame) && IsWindowVisible(hFrame)) {
+		// Dacă este minimizată, o restaurăm
+		if (IsIconic(hFrame)) {
+			ShowWindow(hFrame, SW_RESTORE);
+		}
+
+		// Aducem fereastra existentă în prim-plan
+		SetForegroundWindow(hFrame);
+		BringWindowToTop(hFrame);
+
+		MessageBoxA(hFrame,
+			"Un raport PDF este deja deschis!\nÎnchideți raportul curent înainte de a deschide altul.",
+			"Avertisment", MB_OK | MB_ICONWARNING);
+
+		return 0; // Oprim deschiderea celui de-al doilea raport
+	}
+
+	// 2. Asigură-te că fereastra este creată dacă nu există încă
+	if (hFrame == NULL || !IsWindow(hFrame)) {
+		winopen(pdfwinparent); // Creează hwndframe și hwndview dacă nu au fost create
+		hFrame = get_frame_win();
+	}
+
+	fz_context* ctx = NULL;
+	fz_stream* stream = NULL;
+
+	if (!buffer || bufferSize == 0) {
+		MessageBoxA(NULL, "Eroare: Buffer-ul este gol/NULL!", "MuPDF Debug", MB_OK | MB_ICONERROR);
+		return 0;
+	}
+
+	// 3. GESTIONARE CONTEXT
+	if (!gapp.ctx) {
+		ctx = fz_new_context(NULL, NULL, FZ_STORE_DEFAULT);
+		if (!ctx) {
+			MessageBoxA(NULL, "Eroare: Nu s-a putut crea fz_context!", "MuPDF Debug", MB_OK | MB_ICONERROR);
+			return 0;
+		}
+		fz_register_document_handlers(ctx);
+		pdf_init(ctx);
+	}
+	ctx = gapp.ctx;
+
+	// 4. Închidem documentul precedent dacă exista în memorie
+	if (gapp.doc) {
+		pdfapp_close(&gapp);
+		gapp.doc = NULL;
+	}
+
+	if (persistent_pdf_buffer) {
+		free(persistent_pdf_buffer);
+		persistent_pdf_buffer = NULL;
+	}
+
+	persistent_pdf_buffer = (unsigned char*)malloc(bufferSize);
+	if (!persistent_pdf_buffer) {
+		MessageBoxA(NULL, "Eroare: Nu s-a putut aloca memorie persistentă!", "MuPDF Debug", MB_OK | MB_ICONERROR);
+		return 0;
+	}
+	memcpy(persistent_pdf_buffer, buffer, bufferSize);
+
+	// 5. Resetăm structura stării pdfapp
+	memset(&gapp, 0, sizeof(pdfapp_t));
+	gapp.ctx = ctx;
+	pdfapp_init(ctx, &gapp);
+
+	// 6. Deschidem stream-ul din RAM
+	stream = fz_open_memory(ctx, persistent_pdf_buffer, bufferSize);
+	if (!stream) {
+		free(persistent_pdf_buffer);
+		persistent_pdf_buffer = NULL;
+		MessageBoxA(NULL, "Eroare: fz_open_memory a returnat NULL!", "MuPDF Debug", MB_OK | MB_ICONERROR);
+		return 0;
+	}
+
+	// 7. Încărcăm documentul PDF
+	fz_try(ctx) {
+		gapp.doc = fz_open_document_with_stream(ctx, "pdf", stream);
+	}
+	fz_always(ctx) {
+		fz_drop_stream(ctx, stream);
+	}
+	fz_catch(ctx) {
+		free(persistent_pdf_buffer);
+		persistent_pdf_buffer = NULL;
+		MessageBoxA(NULL, "Eroare: fz_open_document_with_stream a eșuat!", "MuPDF Debug", MB_OK | MB_ICONERROR);
+		return 0;
+	}
+
+	if (!gapp.doc) {
+		free(persistent_pdf_buffer);
+		persistent_pdf_buffer = NULL;
+		MessageBoxA(NULL, "Eroare: gapp.doc este NULL!", "MuPDF Debug", MB_OK | MB_ICONERROR);
+		return 0;
+	}
+
+	// 8. Titluri, căi, pagini și rezoluție
+	gapp.docpath = fz_strdup(ctx, "memory.pdf");
+	gapp.doctitle = fz_strdup(ctx, "Raport ANC");
+	gapp.pagecount = fz_count_pages(ctx, gapp.doc);
+	gapp.pageno = 1;
+	gapp.resolution = get_system_dpi();
+	if (gapp.resolution <= 0) gapp.resolution = 96;
+
+	// 9. Randare pixmap direct
+	fz_try(ctx) {
+		if (gapp.image) {
+			fz_drop_pixmap(ctx, gapp.image);
+			gapp.image = NULL;
+		}
+
+		float zoom = gapp.resolution / 72.0f;
+		fz_matrix ctm = fz_scale(zoom, zoom);
+
+		gapp.image = fz_new_pixmap_from_page_number(
+			ctx,
+			gapp.doc,
+			gapp.pageno - 1,
+			ctm,
+			fz_device_rgb(ctx),
+			0
+		);
+	}
+	fz_catch(ctx) {
+		MessageBoxA(NULL, "Eroare la generarea pixmap-ului direct!", "MuPDF Debug", MB_OK | MB_ICONERROR);
+		return 0;
+	}
+
+	if (gapp.image == NULL) {
+		MessageBoxA(NULL, "Eroare: gapp.image este NULL!", "MuPDF Debug", MB_OK | MB_ICONERROR);
+		return 0;
+	}
+
+	// 10. Obținere dimensiuni și redimensionare Fereastră Win32
+	int pdf_w = fz_pixmap_width(ctx, gapp.image);
+	int pdf_h = fz_pixmap_height(ctx, gapp.image);
+
+	if (hFrame) {
+		RECT workArea;
+		SystemParametersInfo(SPI_GETWORKAREA, 0, &workArea, 0);
+		int max_w = (int)((workArea.right - workArea.left) * 0.85f);
+		int max_h = (int)((workArea.bottom - workArea.top) * 0.85f);
+
+		int target_w = (pdf_w < max_w) ? pdf_w : max_w;
+		int target_h = (pdf_h < max_h) ? pdf_h : max_h;
+
+		RECT winRect = { 0, 0, target_w, target_h };
+		DWORD style = GetWindowLong(hFrame, GWL_STYLE);
+		BOOL hasMenu = (GetMenu(hFrame) != NULL);
+		AdjustWindowRect(&winRect, style, hasMenu);
+
+		int final_w = winRect.right - winRect.left;
+		int final_h = winRect.bottom - winRect.top;
+
+		int pos_x = workArea.left + ((workArea.right - workArea.left) - final_w) / 2;
+		int pos_y = workArea.top + ((workArea.bottom - workArea.top) - final_h) / 2;
+		if (pos_x < 0) pos_x = 0;
+		if (pos_y < 0) pos_y = 0;
+
+		SetWindowPos(hFrame, NULL, pos_x, pos_y, final_w, final_h, SWP_NOZORDER | SWP_SHOWWINDOW);
+
+		RECT clientRect;
+		GetClientRect(hFrame, &clientRect);
+		gapp.winw = clientRect.right - clientRect.left;
+		gapp.winh = clientRect.bottom - clientRect.top;
+		gapp.panx = 0;
+		gapp.pany = 0;
+
+		if (hwndview) {
+			MoveWindow(hwndview, 0, 0, gapp.winw, gapp.winh, TRUE);
+		}
+
+		UpdateWindow(hFrame);
+	}
+
+	// 11. Redesenare finală
+	winrepaint(&gapp);
+
+	return 1;
+	}
+
 #ifdef __cplusplus
 }
 #endif

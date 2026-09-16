@@ -22,6 +22,7 @@ int vControl::getWin32Id() const {
 
 
 // --- Constructors ---
+/*
 vControl::vControl(HINSTANCE hInst, const std::string& id, EventDispatcher& dispatcher)
     : m_id(id), m_handle(nullptr), m_win32Id(ControlIdManager::allocate(id)),
     m_base_x(0), m_base_y(0), m_base_width(0), m_base_height(0),
@@ -47,6 +48,44 @@ vControl::vControl(HINSTANCE hInst, const std::string& id, int x, int y, int wid
             //setBackgroundColor(GetSysColor(COLOR_BTNFACE));
             //LOG_DEBUG(L"vControl: new:" + str_to_wstr(m_id) + L"(" + std::to_wstring(m_win32Id) + L")");
     }
+    */
+
+    // --- Primul Constructor ---
+vControl::vControl(HINSTANCE hInst, const std::string& id, EventDispatcher& dispatcher)
+    : m_id(id), m_handle(nullptr), m_win32Id(ControlIdManager::allocate(id)),
+    m_base_x(0), m_base_y(0), m_base_width(0), m_base_height(0),
+    m_x(0), m_y(0), m_width(0), m_height(0),
+    m_dispatcher(dispatcher), m_parent(nullptr),
+    m_hInstance(hInst),
+    m_fontName(L"Segoe UI"), m_baseFontSize(12),
+    m_fontWeight(FW_NORMAL), m_fontItalic(false), m_fontUnderline(false), // <-- FIX
+    m_hasCustomFont(false), m_hFont(nullptr), m_currentDpi(96),           // <-- FIX
+    m_backgroundColor(GetSysColor(COLOR_BTNFACE)), m_textColor(GetSysColor(COLOR_WINDOWTEXT)),
+    m_hasCustomBackground(false), m_hasCustomTextColor(false), m_bgBrush(nullptr),
+    m_logicVisible(true)
+{
+    scale(m_currentDpi);
+    scaleFont(m_currentDpi);
+}
+
+// --- Al doilea Constructor ---
+vControl::vControl(HINSTANCE hInst, const std::string& id, int x, int y, int width, int height, EventDispatcher& dispatcher)
+    : m_id(id), m_handle(nullptr), m_win32Id(ControlIdManager::allocate(id)),
+    m_base_x(x), m_base_y(y), m_base_width(width), m_base_height(height),
+    m_x(x), m_y(y), m_width(width), m_height(height),
+    m_dispatcher(dispatcher), m_parent(nullptr),
+    m_hInstance(hInst),
+    m_fontName(L"Segoe UI"), m_baseFontSize(12),
+    m_fontWeight(FW_NORMAL), m_fontItalic(false), m_fontUnderline(false), // <-- FIX
+    m_hasCustomFont(false), m_hFont(nullptr), m_currentDpi(96),           // <-- FIX
+    m_backgroundColor(GetSysColor(COLOR_BTNFACE)), m_textColor(GetSysColor(COLOR_WINDOWTEXT)),
+    m_hasCustomBackground(false), m_hasCustomTextColor(false), m_bgBrush(nullptr),
+    m_logicVisible(true)
+{
+    scale(m_currentDpi);
+    scaleFont(m_currentDpi);
+}
+
 
 // --- New DPI-related method implementations ---
 
@@ -309,6 +348,7 @@ LRESULT vControl::handleMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
     // Daca hwnd este valid, pasam la procedura implicita
    
     switch (msg) {
+    /*
     case WM_CTLCOLORSTATIC:
     case WM_CTLCOLOREDIT: {
         HWND hChild = (HWND)lParam;
@@ -318,6 +358,40 @@ LRESULT vControl::handleMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         if (child) {
             // --- MOȘTENIRE FONT ---
             // Folosim getEffectiveFont() care va urca până la cel mai apropiat părinte cu font setat
+            //SelectObject(hdc, child->getEffectiveFont());
+            if (child->getFont() == nullptr) {
+                SelectObject(hdc, child->getEffectiveFont());
+            }
+
+            // --- MOȘTENIRE CULOARE TEXT ---
+            SetTextColor(hdc, child->getEffectiveTextColor());
+
+            // --- MOȘTENIRE FUNDAL ---
+            HBRUSH hBr = child->getEffectiveBackgroundBrush();
+            if (hBr) {
+                SetBkMode(hdc, OPAQUE);
+                SetBkColor(hdc, child->getEffectiveBackgroundColor());
+                return (LRESULT)hBr;
+            }
+            else {
+                SetBkMode(hdc, TRANSPARENT);
+                return (LRESULT)GetStockObject(NULL_BRUSH);
+            }
+        }
+        break;
+    }
+     */
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLOREDIT: {
+        HWND hChild = (HWND)lParam;
+        HDC hdc = (HDC)wParam;
+        vControl* child = getChildByWin32Id(GetDlgCtrlID(hChild));
+
+        if (child) {
+            // --- FIX VIZUAL COMPLET ---
+            // Forțăm selectarea fontului calculat direct în HDC-ul de randare.
+            // Asta garantează că textul se va desena exact cu dimensiunea din m_hFont,
+            // ocolind orice problemă de latență sau mapare internă a Win32.
             SelectObject(hdc, child->getEffectiveFont());
 
             // --- MOȘTENIRE CULOARE TEXT ---
@@ -337,7 +411,7 @@ LRESULT vControl::handleMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         }
         break;
     }
-                           // 2. Mesaj primit de controlul respectiv pentru propriul fundal (ex: Panel sau Window)
+     // 2. Mesaj primit de controlul respectiv pentru propriul fundal (ex: Panel sau Window)
     case WM_ERASEBKGND: {
         if (m_hasCustomBackground) {
             HDC hdc = (HDC)wParam;
@@ -357,29 +431,7 @@ LRESULT vControl::handleMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
     }
     return 0; // Returnează 0 dacă hwnd nu este valid.
 }
-/*
-// --- Procedura Statică de Fereastră (StaticWndProc) ---
-LRESULT CALLBACK vControl::StaticWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
-    vControl* self = nullptr;
 
-    if (msg == WM_NCCREATE) {
-        LPCREATESTRUCT pcs = reinterpret_cast<LPCREATESTRUCT>(lParam);
-        self = static_cast<vControl*>(pcs->lpCreateParams);
-        SetWindowLongPtr(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(self));
-        if (self) {
-            self->m_handle = hwnd;
-        }
-    }
-    else {
-        self = reinterpret_cast<vControl*>(GetWindowLongPtr(hwnd, GWLP_USERDATA));
-    }
-
-    if (self) {
-        return self->handleMessage(hwnd, msg, wParam, lParam);
-    }
-    return DefWindowProc(hwnd, msg, wParam, lParam);
-}
-*/
 LRESULT CALLBACK vControl::StaticWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     vControl* self = reinterpret_cast<vControl*>(GetWindowLongPtr(hwnd, GWLP_USERDATA));
 
@@ -485,61 +537,6 @@ void vControl::setTooltipText(const std::wstring& text) {
 
 }
 
-/*
-void vControl::scale(int newDpi) {
-    if (m_currentDpi == newDpi) return;
-
-    // Recalculăm dimensiunile
-    m_width = MulDiv(m_base_width, newDpi, 96);
-    m_height = MulDiv(m_base_height, newDpi, 96);
-
-    // REPOZIȚIONARE: Doar dacă NU este o fereastră principală (vWindow)
-    // Controalele copil (butoane, paneluri) trebuie mutate, 
-    // dar fereastra principală este deja mutată de WM_DPICHANGED
-    if (getType() != ControlType::Window) {
-        m_x = MulDiv(m_base_x, newDpi, 96);
-        m_y = MulDiv(m_base_y, newDpi, 96);
-    }
-
-    m_currentDpi = newDpi;
-
-    if (m_handle) {
-        // Dacă e fereastră principală, schimbăm DOAR mărimea, nu și poziția (x, y)
-        UINT flags = SWP_NOZORDER | SWP_NOACTIVATE;
-        if (getType() == ControlType::Window) flags |= SWP_NOMOVE;
-
-        SetWindowPos(m_handle, NULL, m_x, m_y, m_width, m_height, flags);
-    }
-}
-*/
-/*
-void vControl::scale(int newDpi) {
-    // Logica de return trebuie să fie atentă: 
-    // chiar dacă DPI-ul e același, dacă e prima rulare, copiii tot trebuie scalați.
-    //if (m_currentDpi == newDpi && m_handle != nullptr) return;
-    //LOG_INFO(L"vControl::scale: scalez dimensiuni pentru: " + str_to_wstr(this->getId()));
-    m_currentDpi = newDpi;
-
-    m_width = MulDiv(m_base_width, newDpi, 96);
-    m_height = MulDiv(m_base_height, newDpi, 96);
-
-    if (getType() != ControlType::Window) {
-        m_x = MulDiv(m_base_x, newDpi, 96);
-        m_y = MulDiv(m_base_y, newDpi, 96);
-    }
-
-    if (m_hasCustomFont) {
-        scaleFont(newDpi);
-    }
-
-    if (m_handle) {
-        UINT flags = SWP_NOZORDER | SWP_NOACTIVATE;
-        if (getType() == ControlType::Window) flags |= SWP_NOMOVE;
-        SetWindowPos(m_handle, NULL, m_x, m_y, m_width, m_height, flags);
-    }
-    
-}
-*/
 
 void vControl::scale(int newDpi) {
     m_currentDpi = newDpi;
@@ -622,92 +619,7 @@ void vControl::scaleFont(int newDpi) {
     }
 }
 
-/*
-void vControl::scaleFont(int newDpi) {
-    m_currentDpi = newDpi;
-    if (m_fontName.empty()) return;
 
-    // Calculăm înălțimea logică (MulDiv e cea mai precisă metodă în Win32)
-    int logicalHeight = -MulDiv(m_baseFontSize, newDpi, 72);
-
-    // Cerem fontul de la manager folosind TOATE stilurile salvate în vControl
-    m_hFont = FontManager::getInstance().getFont(
-        m_fontName,
-        logicalHeight,
-        m_fontWeight,    // TRIMITEM GREUTATEA (ex: 700 pentru Bold)
-        m_fontItalic,
-        m_fontUnderline,
-        false            // strikeout implicit false
-    );
-
-    if (m_handle && m_hFont) {
-        SendMessage(m_handle, WM_SETFONT, (WPARAM)m_hFont, TRUE);
-    }
-}
-*/
-
-/*
-// Supraincarcare pentru a permite setarea stilului
-void vControl::setFont(const std::wstring& fontName, int baseFontSize, int weight, bool italic, bool underline) {
-    // Pasul 1: Salvăm toate proprietățile în membrii clasei
-    m_fontName = fontName;
-    m_baseFontSize = baseFontSize;
-    m_fontWeight = weight;    // Aici se salvează FW_BOLD (700)
-    m_fontItalic = italic;
-    m_fontUnderline = underline;
-
-    // Pasul 2: Aplicăm fontul folosind DPI-ul curent
-    // Chiar dacă fereastra nu e creată încă, datele rămân salvate în membri
-    if (m_handle) {
-
-        scaleFont(m_currentDpi);
-
-        SendMessage(m_handle, WM_SETFONT, (WPARAM)m_hFont, TRUE);
-
-        // IMPORTANT: Spunem tuturor copiilor să se redeseneze deoarece 
-        // ei ar putea moșteni acest font nou
-        InvalidateRect(m_handle, NULL, TRUE);
-        for (auto& pair : m_children) {
-            pair.second->update(); // Sau InvalidateRect pe handle-ul copilului
-        }
-
-        // Forțăm redesenarea pentru a vedea schimbarea imediat
-       
-        UpdateWindow(m_handle);
-    }
-}
-*/
-/*
-void vControl::setFont(const std::wstring& fontName, int baseFontSize, int weight, bool italic, bool underline) {
-    // 1. Marcăm că acest control are acum propriul său stil de font
-    m_hasCustomFont = true;
-
-    m_fontName = fontName;
-    m_baseFontSize = baseFontSize;
-    m_fontWeight = weight;
-    m_fontItalic = italic;
-    m_fontUnderline = underline;
-
-    if (m_handle) {
-        scaleFont(m_currentDpi); // Aceasta va crea m_hFont-ul real
-
-        // Aplicăm vizual controlului curent
-        SendMessage(m_handle, WM_SETFONT, (WPARAM)m_hFont, TRUE);
-
-        // Notificăm copiii care ar putea moșteni acest font
-        for (auto& pair : m_children) {
-            // Doar copiii care NU au fontul lor custom vor fi afectați vizual
-            if (!pair.second->m_hasCustomFont) {
-                // Forțăm redesenarea copilului pentru a declanșa WM_CTLCOLOR... 
-                // unde getEffectiveFont() va returna noul font al părintelui (this)
-                InvalidateRect(pair.second->getHandle(), NULL, TRUE);
-            }
-        }
-
-        UpdateWindow(m_handle);
-    }
-}
-*/
 
 void vControl::setFont(const std::wstring& fontName, int baseFontSize, int weight, bool italic, bool underline) {
     m_hasCustomFont = true;
@@ -765,16 +677,7 @@ void vControl::moveAndResize(int x, int y, int width, int height) {
         m_y = y;
         m_width = width;
         m_height = height;
-        /*
-        if (m_handle) {
-            // Parametrul TRUE forțează fereastra să se repicteze (WM_PAINT)
-            MoveWindow(m_handle, x, y, width, height, TRUE);
-        }
-        else {
-            LOG_WARNING(L"moveAndResize apelat pe un control fără HWND: " + str_to_wstr(m_id));
-        }
-        return;
-        */
+       
         return;
     }
 

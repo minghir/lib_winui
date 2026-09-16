@@ -164,90 +164,42 @@ void vDbFilteredGrid::createControls(HWND parent) {
     this->applyLayout();
 }
 
-/*
-void vDbFilteredGrid::resize() {
 
-    RECT rc;
-    GetClientRect(m_handle, &rc);
-    LOG_DEBUG(L"[vDbFilteredGrid] CLIENT SIZE: " +
-        std::to_wstring(rc.right) + L"x" +
-        std::to_wstring(rc.bottom));
-
-    if (m_grid) {
-        RECT rcGrid;
-        GetWindowRect(m_grid->getHandle(), &rcGrid);
-        LOG_DEBUG(L"[vDbFilteredGrid] GRID SIZE IN RESIZE: " +
-            std::to_wstring(rcGrid.right - rcGrid.left) + L"x" +
-            std::to_wstring(rcGrid.bottom - rcGrid.top));
-    }
-
-
-
-    // 1. Recalculăm pozițiile automate conform VerticalStackLayout
-    //this->applyLayout();
-
-    // 2. Singurul lucru manual: Sincronizarea filtrelor cu coloanele gridului
-    // (Asta nu o poate face VerticalStack pentru că e logică internă de business)
-    if (m_grid && m_filterPanel) {
-        int scrollX = GetScrollPos(m_grid->getHandle(), SB_HORZ);
-        int currentX = 0;
-
-        for (size_t i = 0; i < m_filterEdits.size(); ++i) {
-            int colW = m_grid->getColumnWidthByIndex(i);
-            m_filterEdits[i]->moveAndResize(currentX - scrollX, 0, colW, m_filterPanel->getHeight());
-            currentX += colW;
-        }
-    }
-
-    
-}
-*/
-/*
-void vDbFilteredGrid::resize() {
-    // 1. Obținem DPI-ul curent (poate s-a schimbat)
-    int currentDpi = GetDpiForWindow(m_handle);
-
-    // 2. IMPORTANT: Spune-i grid-ului să se scalaze (asta va apela vGrid::scale -> vGrid::resize)
-    if (m_grid) {
-        m_grid->scale(currentDpi);
-    }
-
-    // 3. Restul logicii tale pentru filtre
-    if (m_grid && m_filterPanel) {
-        int scrollX = GetScrollPos(m_grid->getHandle(), SB_HORZ);
-        int currentX = 0;
-        for (size_t i = 0; i < m_filterEdits.size(); ++i) {
-            int colW = m_grid->getColumnWidthByIndex(i);
-            m_filterEdits[i]->moveAndResize(currentX - scrollX, 0, colW, m_filterPanel->getHeight());
-            currentX += colW;
-        }
-    }
-}
-*/
 void vDbFilteredGrid::resize() {
     // 1. Întâi lăsăm layout-ul să așeze grid-ul în panel
     vPanel::resize();
+
+    if (m_topPanel) {
+        m_topPanel->applyLayout();
+    }
+    if (m_bottomPanel) {
+        m_bottomPanel->applyLayout();
+    }
+
+   
 
     // 2. Acum grid-ul are dimensiunea corectă, îi spunem să-și scaleze coloanele interne
     if (m_grid) {
         m_grid->resize();
     }
-
     // 3. Aliniem filtrele de deasupra grid-ului
     syncFilterScroll(); // Metoda ta care mută edit-urile conform coloanelor
 }
 
-void vDbFilteredGrid::setTitle(const std::wstring title) { 
-    m_title = title; 
+
+void vDbFilteredGrid::setTitle(const std::wstring title) {
+    m_title = title;
     if (m_titleLabel) {
         m_titleLabel->setText(title);
-        //m_titleLabel->setFontSize(int(m_titleLabel->getFontSize() * 1.4));
-        m_titleLabel->setFontWeight(FW_BOLD);
+        //m_titleLabel->setFontWeight(FW_BOLD);
+
+        if (m_topPanel && m_topPanel->getHandle()) {
+            m_topPanel->applyLayout();
+            InvalidateRect(m_topPanel->getHandle(), NULL, TRUE);
+            UpdateWindow(m_topPanel->getHandle());
+        }
     }
     else {
-        // Dacă nu există încă, titlul va fi afișat oricum 
-        // la următoarea populare a setupPagingControls 
-        // deoarece am salvat valoarea în m_title.
         LOG_WARNING(L"setTitle: m_titleLabel nu este încă inițializat.");
     }
 }
@@ -263,13 +215,6 @@ void vDbFilteredGrid::setupPagingControls() {
 
     // 2. Adăugăm un "spring" (spacer) dacă vrei ca butoanele să stea în dreapta
     // Dacă vrei butoanele în stânga, șterge această linie
-   /*
-    auto titleLabel = std::make_unique<vLabel>(m_hInstance, "titleLabel", m_title, 0, btnY, labelWidth, btnW, getEventDispatcher());
-    m_titleLabel = titleLabel.get();
-    m_bottomPanel->addChild("titleLabel", std::move(titleLabel));
-    */
-
-
     m_bottomPanel->addChild("spring", std::make_unique<vSpacer>("spring", 0, btnY, 10, btnW, getEventDispatcher()));
 
    
@@ -409,6 +354,9 @@ void vDbFilteredGrid::setupActionControls() {
     m_titleLabel = titleLabel.get();
     m_topPanel->addChild("titleLabel", std::move(titleLabel));
 
+    if (m_titleLabel) {
+        m_titleLabel->setFontWeight(FW_BOLD);
+    }
 
     // 3. Înregistrare Handleri pe ID-urile UNICE
     getEventDispatcher().registerHandler("click", applyId, [this]() {
@@ -553,16 +501,7 @@ void vDbFilteredGrid::applyFilters() {
                 //filterClause += L"CAST(" + columnName + L" AS TEXT) LIKE '%" + filterText + L"%'";
                 filterClause += L"CAST(" + columnName + L" AS TEXT) ILIKE '" + filterText + L"%'";
             }
-            /*
-            // Extragem numele coloanei din ID-ul controlului (ex: "filter_numeColoana")
-            std::wstring columnName = str_to_wstr(edit->getId().substr(7));
-
-            filterClause += (firstFilter ? L" WHERE " : L" AND ");
-            firstFilter = false;
-
-            // Folosim CAST ca TEXT pentru a permite căutarea LIKE și în coloane numerice (ID, preț, etc.)
-            filterClause += L"CAST(" + columnName + L" AS TEXT) LIKE '%" + filterText + L"%'";
-            */
+            
         }
     }
 
@@ -999,51 +938,10 @@ bool vDbFilteredGrid::viewRecord() {
 }
 
 
-/*
-void vDbFilteredGrid::setEditWindow(std::unique_ptr<vDbEditDialog> editDialog) {
-    if (!editDialog) return;
-    // Salvăm adresa pentru a putea apela ShowWindow mai târziu
-    m_EditDialog = editDialog.get();
-     // Transferăm proprietatea către vApp pentru managementul duratei de viață
-    
-    vApp::getAppInstance()->addWindow(editDialog->getId(), std::move(editDialog));
-    
-}
-*/
-
 
 LRESULT vDbFilteredGrid::handleMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     switch (msg) {
-        /*
-    case 1125: // Mesajul tău custom de scroll (WM_USER + 101)
-    {
-        int scrollX = (int)wParam;
-        if (m_filterPanel && !m_filterEdits.empty() && m_grid)
-        {
-            int currentX = 0;
-            // Presupunem că grid-ul are același gap ca layout-ul filtrelor
-            // Dacă ai gap, preia-l: int gap = m_grid->getGap(); 
-
-            HDWP hdwp = BeginDeferWindowPos((int)m_filterEdits.size());
-
-            for (size_t i = 0; i < m_filterEdits.size(); ++i)
-            {
-                int colW = m_grid->getColumnWidthByIndex((int)i);
-                int targetX = currentX - scrollX;
-                int panelH = m_filterPanel->getHeight();
-
-                hdwp = DeferWindowPos(hdwp,
-                    m_filterEdits[i]->getHandle(),
-                    NULL,
-                    targetX, 0, colW, panelH,
-                    SWP_NOZORDER | SWP_NOACTIVATE);
-
-                currentX += colW; // Dacă ai gap, adaugă aici: currentX += (colW + gap);
-            }
-            EndDeferWindowPos(hdwp);
-        }
-        return 0;
-    }*/
+       
     case 1125: // WM_USER + 101 (Scroll)
     case 1126: // WM_USER + 102 (Resize Coloană)
     {
@@ -1207,24 +1105,7 @@ void vDbFilteredGrid::resetSort() {
 
     //LOG_INFO(L"[vDbFilteredGrid] Sortarea a fost resetată.");
 }
-/*
-void vDbFilteredGrid::showCellContent(int rowIndex, int colIndex, const std::wstring& content) {
-    // Acum compilatorul va găsi metoda getColumnName în m_grid (vDbGrid)
-    std::wstring colName = m_grid->getColumnName(colIndex);
 
-    std::wstring message = L"Detalii înregistrare:\n"
-        L"----------------------\n"
-        L"Tabel: " + str_to_wstr(m_id) + L"\n" +
-        L"Rând: " + std::to_wstring(rowIndex + 1) + L"\n" +
-        L"Câmp: " + colName + L"\n" +
-        L"Valoare: " + content;
-
-    // Folosim MessageBoxW pentru suport Unicode complet
-    MessageBoxW(m_handle, message.c_str(), L"Vizualizare Conținut Celulă", MB_OK | MB_ICONINFORMATION);
-
-    LOG_DEBUG(L"[vDbFilteredGrid] showCellContent afișat pentru: " + colName);
-}
-*/
 
 void vDbFilteredGrid::showCellContent(int rowIndex, int colIndex, const std::wstring& content) {
     std::wstring colName = m_grid->getColumnName(colIndex);

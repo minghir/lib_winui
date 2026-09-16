@@ -8,7 +8,7 @@
 #include <ctime>
 #include <iostream>
 #include <filesystem>
-
+#include <cwctype>
 
 dbfConnection::dbfConnection(const std::string& type, const std::wstring& dsn)
     : m_filePath(dsn) // dsn-ul este calea către fișier în cazul tău
@@ -880,7 +880,8 @@ vConTable dbfConnection::loadTable(const QueryTable& tableInfo) {
     std::wstring fileName = ensureExtension(tableInfo.name, L".dbf");
     std::wstring fullPath = m_filePath + (m_filePath.back() == L'\\' ? L"" : L"\\") + fileName;
 
-    std::fstream file(std::filesystem::path(fullPath), std::ios::binary );
+    std::ifstream file{ std::filesystem::path(fullPath), std::ios::binary };
+    //std::fstream file(std::filesystem::path(fullPath), std::ios::binary );
     //std::ifstream file(fullPath, std::ios::binary);
     if (!file.is_open()) {
         throw std::runtime_error("Nu s-a putut deschide tabela: " + wstr_to_str(fullPath));
@@ -1683,4 +1684,50 @@ void dbfConnection::clearStatement(std::string stm_name = "default") {
 
         // LOG_DEBUG(L"dbfConnection::clearStatement: Memorie eliberată pentru contextul '" + str_to_wstr(stm_name) + L"'");
     }
+}
+
+
+bool dbfConnection::execQuery(const std::wstring& query, const std::vector<std::wstring>& params, std::string stm_name) {
+    // 1. Procesăm interogarea înlocuind semnele '?' cu valorile din vectorul de parametri
+    std::wstring processedQuery = query;
+    size_t paramIdx = 0;
+    size_t pos = 0;
+
+    // Funcție lambda pentru a detecta dacă un șir este numeric
+    auto isNumeric = [](const std::wstring& s) {
+        if (s.empty()) return false;
+        size_t start = (s[0] == L'-' || s[0] == L'+') ? 1 : 0;
+        if (start == s.length()) return false;
+        bool hasDecimal = false;
+        for (size_t i = start; i < s.length(); ++i) {
+            if (s[i] == L'.') {
+                if (hasDecimal) return false;
+                hasDecimal = true;
+            }
+            else if (!std::iswdigit(s[i])) {
+                return false;
+            }
+        }
+        return true;
+    };
+
+    while ((pos = processedQuery.find(L'?', pos)) != std::wstring::npos && paramIdx < params.size()) {
+        std::wstring rawVal = params[paramIdx];
+        std::wstring formattedVal;
+
+        // Dacă valoarea nu e numerică, o punem între ghilimele simple pentru motorul SQL nativ FoxPro/DBF
+        if (isNumeric(rawVal)) {
+            formattedVal = rawVal;
+        }
+        else {
+            formattedVal = L"'" + rawVal + L"'";
+        }
+
+        processedQuery.replace(pos, 1, formattedVal);
+        pos += formattedVal.length();
+        paramIdx++;
+    }
+
+    // 2. Apelăm execQuery-ul clasic existent care știe să parseze și să execute interogarea
+    return execQuery(processedQuery, stm_name);
 }

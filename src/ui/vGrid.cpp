@@ -253,7 +253,13 @@ LRESULT vGrid::handleMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) 
                 }
                 return 0;
             }
-
+            case NM_CLICK: {
+                LPNMITEMACTIVATE pnmia = reinterpret_cast<LPNMITEMACTIVATE>(lParam);
+                if (pnmia->iItem != -1) {
+                    onRowClick(pnmia->iItem, pnmia->iSubItem);
+                }
+                return 0;
+            }
             case NM_RCLICK: {
                 LPNMITEMACTIVATE pnmia = reinterpret_cast<LPNMITEMACTIVATE>(lParam);
 
@@ -668,4 +674,83 @@ void vGrid::autoFitAllColumns() {
     for (int i = 0; i < colCount; ++i) {
         autoFitColumn(i);
     }
+}
+
+void vGrid::onRowClick(int rowIndex, int colIndex) {
+    // Extragerea textului din celulă
+    std::wstring cellContent = getCellText(rowIndex, colIndex);
+    std::string utf8Content = wstring_to_utf8(cellContent);
+
+    // Formatarea argumentelor: "row;col;content"
+    std::string args = std::to_string(rowIndex) + ";" +
+        std::to_string(colIndex) + ";" +
+        utf8Content;
+
+    // Emite evenimentul în dispatcher cu numele "grid_row_click"
+    m_dispatcher.dispatch("grid_row_click", m_id, args);
+}
+
+std::map<std::wstring, std::wstring> vGrid::getRowAsMap(int rowIndex) const {
+    std::map<std::wstring, std::wstring> rowData;
+
+    if (!m_handle || rowIndex < 0) {
+        return rowData;
+    }
+
+    // Verificăm dacă indexul rândului este valid
+    int totalRows = ListView_GetItemCount(m_handle);
+    if (rowIndex >= totalRows) {
+        return rowData;
+    }
+
+    HWND hHeader = ListView_GetHeader(m_handle);
+    if (!hHeader) {
+        return rowData;
+    }
+
+    int colCount = Header_GetItemCount(hHeader);
+    for (int colIndex = 0; colIndex < colCount; ++colIndex) {
+        wchar_t headerBuffer[256] = { 0 };
+        HDITEMW hdi = { 0 };
+        hdi.mask = HDI_TEXT;
+        hdi.pszText = headerBuffer;
+        hdi.cchTextMax = 256;
+
+        // Extragerea numelui coloanei din Header
+        if (Header_GetItem(hHeader, colIndex, &hdi)) {
+            std::wstring columnName = headerBuffer;
+            std::wstring cellValue = getCellText(rowIndex, colIndex);
+
+            rowData[columnName] = cellValue;
+        }
+    }
+
+    return rowData;
+}
+
+std::vector<std::wstring> vGrid::getRowAsVector(int rowIndex) const {
+    std::vector<std::wstring> rowData;
+
+    if (!m_handle || rowIndex < 0) {
+        return rowData;
+    }
+
+    int totalRows = ListView_GetItemCount(m_handle);
+    if (rowIndex >= totalRows) {
+        return rowData;
+    }
+
+    HWND hHeader = ListView_GetHeader(m_handle);
+    if (!hHeader) {
+        return rowData;
+    }
+
+    int colCount = Header_GetItemCount(hHeader);
+    rowData.reserve(colCount); // Pre-alocăm memorie pentru performanță maximă
+
+    for (int colIndex = 0; colIndex < colCount; ++colIndex) {
+        rowData.push_back(getCellText(rowIndex, colIndex));
+    }
+
+    return rowData;
 }

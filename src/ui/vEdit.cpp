@@ -37,7 +37,9 @@ LRESULT CALLBACK EditSubclassProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lP
         // Apelăm validarea direct aici, este cel mai sigur punct
         pEdit->validate();
         pEdit->getEventDispatcher().dispatch("lost_focus", pEdit->getId());
-        break; // Lăsăm și Windows-ul să-și facă treaba de focus
+
+        return DefSubclassProc(hWnd, uMsg, wParam, lParam);
+        //break; // Lăsăm și Windows-ul să-și facă treaba de focus
     }
     case WM_GETDLGCODE: {
         // Dacă este MultiLine, lăsăm comportamentul default al Windows-ului 
@@ -163,10 +165,12 @@ LRESULT vEdit::handleMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) 
 
         case WM_COMMAND: {
             int notificationCode = HIWORD(wParam);
+            /*
             if (notificationCode == EN_KILLFOCUS) {
                 //m_dispatcher.dispatch("lost_focus", m_id);
                 return 0;
             }
+            */
             break;
         }
     }

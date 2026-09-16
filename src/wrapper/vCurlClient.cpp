@@ -47,6 +47,11 @@ bool vCurlClient::download(const std::string& url, const std::string& localFileP
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, fp);
     curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L); // Pentru redirect-uri HTTP
+    //curl_easy_setopt(curl, CURLOPT_FTP_USE_PASV, 0L); // Încearcă modul activ
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 60L);      // 60 secunde pentru tot transferul
+    curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 10L); // 10 secunde pentru conectare
+    curl_easy_setopt(curl, CURLOPT_FTP_SKIP_PASV_IP, 1L);
+
 
     // Setări specifice FTP
     if (url.compare(0, 6, "ftp://") == 0) {
@@ -54,7 +59,7 @@ bool vCurlClient::download(const std::string& url, const std::string& localFileP
         // Folosim constanta direct din enum-ul libcurl dacă identificatorul macro are probleme
         //curl_easy_setopt(curl, (CURLoption)85, 1L);
         curl_easy_setopt(curl, CURLOPT_FTP_CREATE_MISSING_DIRS, 1L); // Opțional: creează foldere pe server dacă încarci
-    }
+    }   
 
     // Autentificare (dacă e furnizată)
     if (!userPwd.empty()) {

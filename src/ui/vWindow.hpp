@@ -102,7 +102,7 @@ public:
             UpdateWindow(m_handle);
             // Opțional: o aducem în față dacă este un dialog de editare
             SetForegroundWindow(m_handle);
-            
+            //centerWindow();
         }
         else {
             LOG_ERROR(L"[vWindow:show()] Handle INVALID sau fereastra nu a fost creata!");
@@ -126,8 +126,15 @@ public:
     }
 
     void centerWindow();
-
+    void centerWindowToScreen();
     bool isModal() const { return m_isModal; }
+
+    void setTitle(const std::wstring& title);
+
+    void setParentForModal(HWND hParent) {
+        m_hParentForModal = hParent;
+    }
+
 protected:
    // HINSTANCE m_hInstance;      // Handle-ul instanței aplicației.
     bool m_isMainWindow;        // Flag pentru a determina dacă este fereastra principală.

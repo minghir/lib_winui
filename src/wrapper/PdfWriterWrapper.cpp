@@ -69,7 +69,7 @@ m_isFinalized(false) {
        
 }
 
-
+/*
 PdfWriterWrapper::~PdfWriterWrapper() {
     // 1. Încercarea de finalizare (pentru a închide PDFWriter)
     if (!m_isFinalized) {
@@ -99,6 +99,25 @@ PdfWriterWrapper::~PdfWriterWrapper() {
     // Dar ar trebui să resetați pointerul inteligent al scriitorului
     
     // ... Alte curățări ...
+}
+*/
+PdfWriterWrapper::~PdfWriterWrapper() {
+    if (m_currentPageContext && m_writer) {
+        m_writer->EndPageContentContext(m_currentPageContext);
+        m_currentPageContext = nullptr;
+    }
+    if (m_currentPage) {
+        delete m_currentPage;
+        m_currentPage = nullptr;
+    }
+
+    m_fontCache.clear();
+    m_currentFont = nullptr;
+    m_defaultFont = nullptr;
+
+    // Aici este locul sigur unde m_writer și m_memoryStream sunt eliberate
+    m_writer.reset();
+    m_memoryStream.reset();
 }
 
 // --- Controlul Documentului ---
@@ -174,7 +193,41 @@ bool PdfWriterWrapper::initialize(const std::wstring& filePath, double width, do
     return true;
 }
 
+bool PdfWriterWrapper::initializeToMemory(double width, double height) {
+    m_isFinalized = false;
+    m_isInMemoryMode = true;
 
+    // 1. Instanțiem writer-ul custom din memorie
+    m_memoryStream = std::make_unique<StringWriter>();
+
+    // 2. Instanțiem PDFWriter dacă nu există
+    if (!m_writer) {
+        m_writer = std::make_unique<PDFWriter>();
+    }
+
+    // 3. Pornim generarea PDF în stream
+    EStatusCode status = m_writer->StartPDFForStream(
+        m_memoryStream.get(),
+        ePDFVersion13
+    );
+
+    if (status != eSuccess) {
+        LOG_FATAL(L"[PDF Wrapper] Eroare fatală la pornirea PDFWriter în memorie.");
+        return false;
+    }
+
+    // 4. Încărcăm fonturile PENTRU NOUA INSTANȚĂ m_writer
+    loadAllFonts();
+
+    if (m_fontCache.empty() && !m_defaultFont) {
+        LOG_ERROR(L"[PDF Wrapper] CRITIC: Niciun font nu a putut fi încărcat la initializeToMemory!");
+        return false;
+    }
+
+    return true;
+}
+
+/*
 bool PdfWriterWrapper::finalize() {
 
     if (m_isFinalized) {
@@ -218,18 +271,62 @@ bool PdfWriterWrapper::finalize() {
     m_defaultFont = nullptr;
 
     m_isFinalized = (status == eSuccess);
-    /*
-    if (status != eSuccess) {
-        LOG_ERROR(L"[PDF Wrapper] Eroare la EndPDF.");
+  
+    return m_isFinalized;
+}
+*/
+bool PdfWriterWrapper::finalize() {
+    if (m_isFinalized) {
+        LOG_WARNING(L"[PDF Wrapper] finalize() apelat de două ori.");
+        return true;
+    }
+
+    if (!m_writer) {
+        LOG_ERROR(L"[PDF Wrapper] m_writer este nullptr în finalize().");
         return false;
     }
-    LOG_SUCCESS(L"[PDF Wrapper] Document PDF finalizat și salvat.");
-    */
+
+    // 1. Închide contextul paginii curente dacă a rămas deschis
+    if (m_currentPageContext) {
+        m_writer->EndPageContentContext(m_currentPageContext);
+        m_currentPageContext = nullptr;
+    }
+
+    // 2. Încheie și eliberează pagina curentă dacă nu a fost procesată
+    if (m_currentPage) {
+        m_writer->WritePageAndRelease(m_currentPage);
+        m_currentPage = nullptr;
+    }
+
+    // 3. Finalizează documentul (PDFWriter scrie trailer-ul și xref-ul în m_memoryStream)
+    EStatusCode status = m_writer->EndPDF();
+
+    // 🚨 NOTĂ CRITICĂ: Păstrăm m_memoryStream activ! 
+    // NU facem m_memoryStream.reset() aici, altfel se distruge buffer-ul de octeți 
+    // înainte de a fi extras de convertToMemory(). 
+    // Curățarea stream-ului se va face automat în destructorul ~PdfWriterWrapper() 
+    // sau la următorul initializeToMemory().
+
+    // 4. Resetăm doar referințele locale de fonturi (fără delete pe pointeri, 
+    // deoarece m_writer deține memoria fonturilor)
+    m_fontCache.clear();
+    m_currentFont = nullptr;
+    m_defaultFont = nullptr;
+
+    m_isFinalized = (status == eSuccess);
+
+    if (m_isFinalized) {
+        LOG_SUCCESS(L"[PDF Wrapper] Documentul PDF a fost finalizat cu succes.");
+    }
+    else {
+        LOG_ERROR(L"[PDF Wrapper] EndPDF() a eșuat!");
+    }
+
     return m_isFinalized;
 }
 
 // --- Controlul Paginilor ---
-
+/*
 void PdfWriterWrapper::startPage(double width, double height) {
     // Finalizează pagina anterioară, dacă există
     if (m_currentPageContext) {
@@ -256,6 +353,45 @@ void PdfWriterWrapper::startPage(double width, double height) {
 
 
 }
+*/
+
+void PdfWriterWrapper::startPage(double width, double height) {
+    // 1. Verificare critică împotriva nullptr
+    if (!m_writer) {
+        LOG_FATAL(L"[PDF Wrapper] CRASH PREVENTED: m_writer este nullptr în startPage()! Apelul initialize() sau initializeToMemory() a fost omis.");
+        return;
+    }
+
+    // 2. Finalizează pagina anterioară, dacă există
+    if (m_currentPageContext) {
+        m_writer->EndPageContentContext(m_currentPageContext);
+        m_currentPageContext = nullptr;
+    }
+
+    if (m_currentPage) {
+        m_writer->WritePageAndRelease(m_currentPage);
+        m_currentPage = nullptr;
+    }
+
+    // 3. Crearea paginii noi
+    m_currentPage = new PDFPage();
+    if (!m_currentPage) {
+        LOG_FATAL(L"[PDF Wrapper] Nu s-a putut aloca memorie pentru PDFPage.");
+        return;
+    }
+
+    m_currentPage->SetMediaBox(PDFRectangle(0, 0, width, height));
+
+    // 4. Creează contextul de conținut
+    m_currentPageContext = m_writer->StartPageContentContext(m_currentPage);
+
+    if (!m_currentPageContext) {
+        LOG_ERROR(L"[PDF Wrapper] StartPageContentContext a returnat nullptr! PDFWriter nu este într-o stare validă de scriere (StartPDF nu a fost apelat).");
+        return;
+    }
+
+    LOG_DEBUG(L"[PDF Wrapper] Pagina nouă inițializată cu succes.");
+}
 
 void PdfWriterWrapper::endPage() {
     // Logica de finalizare a paginii este inclusă în startPage și finalize
@@ -281,6 +417,10 @@ void PdfWriterWrapper::addText(double x, double y, const std::wstring& text, dou
         m_currentFont = getCachedFont(fontFamily);
     }
     
+    if (!m_currentFont) {
+        LOG_ERROR(L"[PDF Wrapper] Imposibil de randat textul - m_currentFont este NULL!");
+        return;
+    }
 
 
     // Asigură-te că ai funcția de conversie (sau implementeaz-o)
@@ -912,7 +1052,10 @@ void PdfWriterWrapper::registerFont(const pdfFontKey& key, PDFUsedFont* font) {
 }
 
 PDFUsedFont* PdfWriterWrapper::getFontForStyle(const Style& style) {
-
+    if (m_fontCache.empty() && !m_defaultFont) {
+        // Dacă nu avem fonturi deloc, nu încercăm căutări repetate în map
+        return nullptr;
+    }
     // -----------------------------------------------------------------
     // 1. PRE-PROCESAREA FONT FAMILY
     // Extrage doar primul font din lista (e.g., 'Arial, sans-serif' devine 'Arial')
@@ -1216,7 +1359,7 @@ void PdfWriterWrapper::writeDebugTextByPassFlow(double x, double y_pdf, const st
     LOG_DEBUG(L"[DEBUG TEXT RENDER] Tag: <" + text + L"> scris la X: " + std::to_wstring(x) + L", Y_PDF: " + std::to_wstring(y_pdf));
 }
 
-
+/*
 void PdfWriterWrapper::loadAllFonts() {
     try {
         PDFUsedFont* font = m_writer->GetFontForFile(m_fontFamilies["Arial"].Regular.c_str());
@@ -1291,6 +1434,83 @@ void PdfWriterWrapper::loadAllFonts() {
         }
         catch (const std::exception& e) {
             LOG_ERROR(L"[FONT LOAD] Eroare la încărcarea fonturilor pentru '" + str_to_wstr(familyName) + L"': " + str_to_wstr(e.what()));
+        }
+    }
+}
+*/
+
+void PdfWriterWrapper::loadAllFonts() {
+    if (!m_writer) return;
+
+    // Helper lambda pentru a căuta fișierul de font în folderul local sau în Windows Fonts
+    auto findFontFile = [](const std::string& relativePath) -> std::string {
+        if (std::filesystem::exists(relativePath)) {
+            return relativePath;
+        }
+        // Încercăm în C:\Windows\Fonts dacă e cale relativă "Fonts\..."
+        std::filesystem::path p(relativePath);
+        std::string winPath = "C:\\Windows\\Fonts\\" + p.filename().string();
+        if (std::filesystem::exists(winPath)) {
+            return winPath;
+        }
+        return "";
+    };
+
+    for (const auto& [familyName, paths] : m_fontFamilies) {
+        try {
+            std::wstring wFamily = str_to_wstr(familyName);
+
+            // Regular
+            std::string regPath = findFontFile(paths.Regular);
+            if (!regPath.empty()) {
+                PDFUsedFont* font = m_writer->GetFontForFile(regPath.c_str());
+                if (font) {
+                    registerFont({ wFamily, L"normal", L"normal" }, font);
+                    if (!m_defaultFont) m_defaultFont = font; // Setează-l ca default dacă nu avem
+                }
+            }
+
+            // Bold
+            std::string boldPath = findFontFile(paths.Bold);
+            if (!boldPath.empty()) {
+                PDFUsedFont* font = m_writer->GetFontForFile(boldPath.c_str());
+                if (font) {
+                    registerFont({ wFamily, L"bold", L"normal" }, font);
+                }
+            }
+
+            // Italic
+            std::string italicPath = findFontFile(paths.Italic);
+            if (!italicPath.empty()) {
+                PDFUsedFont* font = m_writer->GetFontForFile(italicPath.c_str());
+                if (font) {
+                    registerFont({ wFamily, L"normal", L"italic" }, font);
+                }
+            }
+
+            // BoldItalic
+            std::string biPath = findFontFile(paths.BoldItalic);
+            if (!biPath.empty()) {
+                PDFUsedFont* font = m_writer->GetFontForFile(biPath.c_str());
+                if (font) {
+                    registerFont({ wFamily, L"bold", L"italic" }, font);
+                }
+            }
+        }
+        catch (const std::exception& e) {
+            LOG_ERROR(L"[FONT LOAD] Excepție la încărcarea fonturilor pentru '" + str_to_wstr(familyName) + L"': " + str_to_wstr(e.what()));
+        }
+    }
+
+    // Fallback de urgență direct pe Arial din Windows
+    if (!m_defaultFont) {
+        std::string sysArial = findFontFile("arial.ttf");
+        if (!sysArial.empty()) {
+            m_defaultFont = m_writer->GetFontForFile(sysArial.c_str());
+            if (m_defaultFont) {
+                registerFont({ L"Arial", L"normal", L"normal" }, m_defaultFont);
+                LOG_INFO(L"[FONT LOAD] Fallback reușit pe Arial din sistem.");
+            }
         }
     }
 }

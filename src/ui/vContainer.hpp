@@ -19,6 +19,9 @@ protected:
         std::unique_ptr<ILayoutStrategy> m_layoutStrategy; // Strategia de layout
 
 public:
+    //Flag static pentru a bloca recalcularea layout-ului în mijlocul scalării
+    inline static bool s_isScaling = false;
+
     // Constructor. Inițializează vContainer cu un ID specific.
     explicit vContainer(HINSTANCE hInstance, const std::string& id, EventDispatcher& dispatcher);
 

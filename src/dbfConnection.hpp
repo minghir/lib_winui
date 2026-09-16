@@ -45,7 +45,7 @@ public:
 
     // DBF-ul nativ nu are SQL, deci execQuery va "selecta" tabelul
     bool execQuery(const std::wstring& query, std::string stm_name = "default") override;
-
+    bool execQuery(const std::wstring& query, const std::vector<std::wstring>& params, std::string stm_name = "default") override;
     long long execCountQuery(const std::wstring& countQuery) override { return m_header.numRecords; }
     int getRowCount(std::string stm_name = "default") override { return m_header.numRecords; }
 

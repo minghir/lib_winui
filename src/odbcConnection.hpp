@@ -62,6 +62,8 @@ public:
 
     // execut query
     bool execQuery(const std::wstring& query, std::string stm_name = "default" ) override;
+    // parametrii
+    bool execQuery(const std::wstring& query, const std::vector<std::wstring>& params, std::string stm_name = "default") override;
     
     long long execCountQuery(const std::wstring& countQuery) override;
 

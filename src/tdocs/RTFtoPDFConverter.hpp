@@ -10,6 +10,15 @@
 
 #define TAB_WIDTH 18.
 
+struct LineChunk {
+    std::wstring text;
+    Style style;
+};
+
+struct ParagraphLine {
+    std::vector<LineChunk> chunks;
+};
+
 class RtfToPdfConverter : public BasePdfConverter {
 private:
 
@@ -35,6 +44,11 @@ private:
     PdfWriterWrapper m_pdfWriter;
     const Rtf& m_rtfDocument; // Referință la modelul de document parsat
 
+    bool m_isProcessingTable = false;
+    bool m_isRenderingHeader = false;
+    std::vector<const RtfRow*> m_currentTableHeaderRows;
+    std::vector<double> m_currentTableColWidths;
+
     // Funcții de randare structurală (Flow)
     void processRtfBlock(const RtfBlock& block);
     double  processRtfParagraph(const RtfParagraph& paragraph);
@@ -56,6 +70,13 @@ private:
     void renderFooter();
     double renderFooterParagraph(const RtfParagraph& paragraph, double lineHeight);
     double renderFooterTable(const RtfTable& table);
+
+    void renderHeader();
+    double renderHeaderParagraph(const RtfParagraph& paragraph, double lineHeight);
+    double renderHeaderTable(const RtfTable& table);
+
+
+
     double calculateXOffsetForAlignment(const std::wstring& align, double cellWidth, double contentWidth);
     std::wstring replaceRtfFields(const std::wstring& text, int currentPage, int totalPages);
 
@@ -64,6 +85,11 @@ private:
     void initializeGlobalVarResolvers();
     void identifyGlobalVars(const std::wstring& text, std::vector<std::wstring>& vars);
     std::wstring resolveTextContent(const std::wstring& content, const std::vector<std::wstring>& vars);
+
+    bool prepareAndRunPipeline();
+
+    double getFooterHeight() const;
+    void finalizePageNumbers();
 public:
     // Constructorul primește obiectul Rtf gata parsat
     RtfToPdfConverter(const Rtf& rtfDocument)
@@ -74,5 +100,5 @@ public:
     // Metoda principală care lansează procesul de randare
     bool convert(const std::wstring& filename);
 
-
+    bool convertToMemory(std::vector<uint8_t>& outPdfBuffer);
 };

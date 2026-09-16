@@ -511,3 +511,38 @@
         return name + extension; // adaugă extensia
     }
 
+
+
+
+std::wstring citeste_fisier_utf8(const std::wstring& filePath) {
+    // Deschidem fișierul în mod binar pentru a nu altera caracterele speciale
+    std::ifstream file(filePath, std::ios::in | std::ios::binary);
+    if (!file.is_open()) {
+        return L"";
+    }
+
+    std::string content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+    file.close();
+
+    if (content.empty()) return L"";
+
+    // Verificăm și eliminăm UTF-8 BOM dacă există (\xEF\xBB\xBF)
+    size_t offset = 0;
+    if (content.size() >= 3 && 
+        static_cast<unsigned char>(content[0]) == 0xEF &&
+        static_cast<unsigned char>(content[1]) == 0xBB &&
+        static_cast<unsigned char>(content[2]) == 0xBF) 
+    {
+        offset = 3;
+    }
+
+    // Conversie UTF-8 (std::string) -> UTF-16 (std::wstring) folosind API-ul Windows
+    int size_needed = MultiByteToWideChar(CP_UTF8, 0, content.c_str() + offset, static_cast<int>(content.size() - offset), NULL, 0);
+    if (size_needed <= 0) return L"";
+
+    std::wstring wstrTo(size_needed, 0);
+    MultiByteToWideChar(CP_UTF8, 0, content.c_str() + offset, static_cast<int>(content.size() - offset), &wstrTo[0], size_needed);
+
+    return wstrTo;
+}
+
