@@ -505,7 +505,7 @@ private:
             }
             else {
                 result.success = false;
-                result.message = L"Eroare SQL în query-ul primit.";
+                result.message = engine.getError();
             }
         }
 

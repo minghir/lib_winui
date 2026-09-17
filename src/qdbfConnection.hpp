@@ -194,44 +194,55 @@ public:
     }
 
     // LIPSA: execQuery
+    // 5. ExecQuery corectat: Returnează TRUE dacă rețeaua a funcționat, 
+    // lăsând clientul să verifice `m_lastResult.success` pentru statusul SQL/comandă.
     bool execQuery(const std::wstring& query, std::string stm_name = "default") override {
-        if (!isConnected()) return false;
+        if (!isConnected()) {
+            m_error = L"Nu există o conexiune activă la server.";
+            return false;
+        }
 
         // 1. Trimitem query-ul
         std::string qStr(query.begin(), query.end());
-        if (send(m_socket, qStr.c_str(), (int)qStr.length(), 0) == SOCKET_ERROR) return false;
+        if (send(m_socket, qStr.c_str(), (int)qStr.length(), 0) == SOCKET_ERROR) {
+            m_error = L"Eroare la trimiterea datelor prin socket.";
+            return false;
+        }
 
         // 2. Primim dimensiunea pachetului
         uint32_t packetSize = 0;
-        if (recv(m_socket, (char*)&packetSize, sizeof(packetSize), 0) <= 0) return false;
+        int r = recv(m_socket, (char*)&packetSize, sizeof(packetSize), 0);
+        if (r <= 0) {
+            m_error = L"Conexiunea a fost închisă de server.";
+            return false;
+        }
 
         // 3. Primim buffer-ul complet
         std::vector<char> buffer(packetSize);
         uint32_t receivedTotal = 0;
         while (receivedTotal < packetSize) {
             int n = recv(m_socket, buffer.data() + receivedTotal, packetSize - receivedTotal, 0);
-            if (n <= 0) return false;
+            if (n <= 0) {
+                m_error = L"Conexiunea a fost întreruptă în timpul recepției datelor.";
+                return false;
+            }
             receivedTotal += n;
         }
 
-        // 4. Deserializăm
+        // 4. Deserializăm rezultatul trimis de server
         m_lastResult = deserializeResult(buffer);
-        return m_lastResult.success;
+
+        // ⭐ MODIFICAREA CHEIE: Returnăm întotdeauna true dacă pachetul s-a citit cu succes.
+        // Erorile logice sau de SQL vor fi preluate din m_lastResult.success de către client.
+        if(!m_lastResult.success) m_error = m_lastResult.message;
+        return true;
     }
 
-    // LIPSA: getLastQueryResult
-    vConResult getLastQueryResult() override {
-        return m_lastResult;
-    }
-
-    // --- IMPLEMENTAREA NOUĂ: ExecQuery cu parametri pentru qdbfConnection ---
     bool execQuery(const std::wstring& query, const std::vector<std::wstring>& params, std::string stm_name = "default") override {
-        // 1. Procesăm interogarea înlocuind semnele '?' cu valorile din vectorul de parametri
         std::wstring processedQuery = query;
         size_t paramIdx = 0;
         size_t pos = 0;
 
-        // Lambda pentru a detecta dacă un șir reprezintă un număr (întreg sau zecimal)
         auto isNumeric = [](const std::wstring& s) {
             if (s.empty()) return false;
             size_t start = (s[0] == L'-' || s[0] == L'+') ? 1 : 0;
@@ -249,17 +260,14 @@ public:
             return true;
         };
 
-        // 2. Înlocuim secvențial fiecare '?'
         while ((pos = processedQuery.find(L'?', pos)) != std::wstring::npos && paramIdx < params.size()) {
             std::wstring rawVal = params[paramIdx];
             std::wstring formattedVal;
 
             if (isNumeric(rawVal)) {
-                formattedVal = rawVal; // Numerele rămân ca atare
+                formattedVal = rawVal;
             }
             else {
-                // Pentru text, escapăm eventualele ghilimele simple interne duplicându-le (' -> '') 
-                // și în încadrăm între ghilimele simple.
                 std::wstring escapedVal = rawVal;
                 size_t qPos = 0;
                 while ((qPos = escapedVal.find(L'\'', qPos)) != std::wstring::npos) {
@@ -274,9 +282,16 @@ public:
             paramIdx++;
         }
 
-        // 3. Trimitem mai departe interogarea gata formatată către funcția ta de rețea existentă
         return execQuery(processedQuery, stm_name);
     }
+
+    // LIPSA: getLastQueryResult
+    vConResult getLastQueryResult() override {
+        return m_lastResult;
+    }
+
+    
+    
 
 private:
     bool sendWString(const std::wstring& s) {

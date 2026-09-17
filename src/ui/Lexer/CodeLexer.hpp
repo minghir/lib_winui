@@ -8,8 +8,8 @@
 #include <set>
 #include <unordered_map>
 #include <memory>
-#include "pugixml.hpp"
-
+//#include "pugixml.hpp"
+#include "D:\Programming\Aplicatii_C2019\ANC\thirdparty\pugixml-1.15\src\pugixml.hpp"
 
 // Forward declaration pentru vRichEdit dacă nu vrei să incluzi tot header-ul aici
 class vRichEdit;

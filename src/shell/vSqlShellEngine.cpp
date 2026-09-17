@@ -178,7 +178,8 @@ void vSqlShellEngine::executeSQLCommand(const std::wstring& command) {
         }
 
         if (!result.success) {
-            LOG_ERROR(L"Eroare Server: " + result.message);
+            LOG_ERROR(L"Eroare Server: " + con->getError());
+
             return;
         }
 
@@ -201,8 +202,7 @@ void vSqlShellEngine::executeSQLCommand(const std::wstring& command) {
             LOG_ERROR(L"Conexiune pierdută cu serverul!");
             exit(0);
         }
-        //LOG_ERROR(L"Eroare SQL: " + con->getError());
-        LOG_ERROR(L"Eroare SQL: " + result.message);
+        LOG_ERROR(L"Eroare SQL: " + con->getError());
     }
 }
 

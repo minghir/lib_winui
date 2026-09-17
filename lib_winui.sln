@@ -17,8 +17,14 @@ EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "uiTest", "tests\uiTest\uiTest.vcxproj", "{7772B35E-632B-45D1-A80E-E338BA6E52A0}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "qdbf", "tests\qdbf\qdbf.vcxproj", "{726FD493-9A35-4A17-915C-8EBF51E7135E}"
+	ProjectSection(ProjectDependencies) = postProject
+		{61687E55-B6F2-4FD5-8778-5733FB78583F} = {61687E55-B6F2-4FD5-8778-5733FB78583F}
+	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "qdbf_cli", "tests\qdbf_cli\qdbf_cli.vcxproj", "{BE7934C6-CCD2-475D-B5F3-6E3CE89A4938}"
+	ProjectSection(ProjectDependencies) = postProject
+		{61687E55-B6F2-4FD5-8778-5733FB78583F} = {61687E55-B6F2-4FD5-8778-5733FB78583F}
+	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "wqdbf", "tests\wqdbf\wqdbf.vcxproj", "{008777AB-0C86-481C-99D1-A109274EE153}"
 EndProject
