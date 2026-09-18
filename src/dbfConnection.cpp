@@ -194,6 +194,7 @@ bool dbfConnection::execQuery(const std::wstring& query, std::string stm_name) {
 
         // --- 0. RESETARE REZULTAT ANTERIOR ---
         m_lastResult = vConResult(); // Resetăm obiectul de rezultat
+        clearError();
         if (m_statements.count(stm_name)) {
             m_statements.erase(stm_name); // Ștergem contextul vechi
         }
@@ -251,11 +252,41 @@ bool dbfConnection::execQuery(const std::wstring& query, std::string stm_name) {
         std::vector<vConTable> universe;
 
         for (const auto& qTable : participating) {
-            universe.push_back(loadTable(qTable));
-            //LOG_INFO(L"Tabel încărcat: " + qTable.name + L" (Alias: " + qTable.getEffectiveName() + L")");
+            if (qTable.isSubquery && qTable.subSelect) {
+                std::vector<vConTable> subUniverse;
+
+                // Extragem direct tabela de bază cerută de subquery din structura sa interna (fromTable)
+                if (!qTable.subSelect->fromTable.name.empty()) {
+                    subUniverse.push_back(loadTable(qTable.subSelect->fromTable));
+                }
+
+                // Dacă subquery-ul are și joins, le putem adăuga opțional
+                for (const auto& j : qTable.subSelect->joins) {
+                    subUniverse.push_back(loadTable(j.table));
+                }
+
+                // Executăm subquery-ul cu universul lui dedicat
+                vSqlEngine subEngine(subUniverse, qTable.subSelect);
+                vConResult subRes = subEngine.executeSubquery();
+
+                if (!subRes.success) {
+                    throw std::runtime_error("Eroare la evaluarea subquery-ului din FROM: " + wstr_to_str(subRes.message));
+                }
+
+                vConTable derivedTable = subRes.table;
+                derivedTable.tableName = qTable.getEffectiveName();
+                derivedTable.tableAlias = qTable.alias;
+
+                universe.push_back(derivedTable);
+            }
+            else {
+                universe.push_back(loadTable(qTable));
+            }
         }
 
-        if (universe.empty()) return false;
+        bool isVirtualTableSelect = (parser.getQuery().type == QueryType::SELECT && participating.empty());
+
+        if (universe.empty() && !isVirtualTableSelect) return false;
 
         // --- 2. Execuție Engine ---
         vSqlEngine engine(universe, parser);
