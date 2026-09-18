@@ -1,5 +1,5 @@
 ﻿#include "vDbEditDialog.hpp"
-#include "D:\Programming\Aplicatii_C2019\ANC\thirdparty\pugixml-1.15\src\pugixml.hpp"
+#include "pugixml.hpp"
 
 class vDbXmlEditDialog : public vDbEditDialog {
 private:

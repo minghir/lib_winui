@@ -107,7 +107,7 @@
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>..\..\thirdparty\PDF-Writer\FreeType\include;..\..\thirdparty\PDF-Writer\PDFWriter;..\..\thirdparty\mupdf\include;..\..\thirdparty\pugixml-1.15\src;..\..\..\vreport\libvreport\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\thirdparty\PDF-Writer\FreeType\include;..\..\thirdparty\PDF-Writer\PDFWriter;..\..\thirdparty\mupdf\include;..\..\..\thirdparty\pugixml-1.15\src;..\..\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -147,10 +147,13 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\..\thirdparty\pugixml-1.15\src\pugixml.cpp" />
     <ClCompile Include="CodeDialog.cpp" />
     <ClCompile Include="uiTest.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\..\thirdparty\pugixml-1.15\src\pugiconfig.hpp" />
+    <ClInclude Include="..\..\..\thirdparty\pugixml-1.15\src\pugixml.hpp" />
     <ClInclude Include="CodeDialog.hpp" />
     <ClInclude Include="XmlTestDialog.hpp" />
   </ItemGroup>
