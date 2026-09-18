@@ -9,24 +9,31 @@
 #include <set>
 
 
-// Constructorul 1: Pentru query - ul principal
-// Leagă referința 'query' la 'm_internalQuery'
+// Constructorul 1: Pentru query-ul principal
 SqlQueryParser::SqlQueryParser(std::wstring qry)
     : query_str(qry), query(m_internalQuery)
 {
+    // ⭐ Protecție împotriva șirurilor goale ⭐
+    if (wstr_trim(qry).empty()) {
+        return; // Ișim liniștiți fără să setăm erori sau să crăpăm
+    }
+
+    LOG_INFO(L"🔍 CONSTRUCTOR 1 QRY: [" + qry + L"]");
     if (parse()) {
         printStructure();
     }
     else {
-       LOG_ERROR(L"Parse failed: " + lastError.message);
+        LOG_ERROR(L"Parse failed: " + lastError.message);
     }
 }
 
-// Constructorul 2: Pentru SUBQUERY
-// Leagă referința 'query' la obiectul pasat din exterior (col.subSelect)
-SqlQueryParser::SqlQueryParser(std::wstring qry, Query& targetQuery) : query_str(qry), query(targetQuery) {
-    // AICI NU APELĂM parse() automat, sau dacă o facem, 
-    // ne asigurăm că parse() scrie în 'query' (care acum pointează la targetQuery)
+SqlQueryParser::SqlQueryParser(std::wstring qry, Query& targetQuery)
+    : query_str(qry), query(targetQuery)
+{
+    LOG_INFO(L"🔍 CONSTRUCTOR 2 SUBQUERY QRY: [" + qry + L"]"); // <-- Adaugă aici
+    if (!parse()) {
+        LOG_ERROR(L"Subquery Parse failed: " + lastError.message);
+    }
 }
 
 size_t findLogicalSplit(const std::wstring& section, std::wstring& foundOp) {
@@ -571,38 +578,41 @@ bool SqlQueryParser::parseSelect(std::wstring section) {
     section = wstr_trim(section);
     if (section.empty()) return setError(L"Clauza SELECT este goală.");
 
-    // 1. Verificăm DISTINCT
+    // --- 1. Verificare DISTINCT ---
     std::wstring upperSection = to_upper(section);
     if (upperSection.substr(0, 9) == L"DISTINCT ") {
         query.isDistinct = true;
         section = wstr_trim(section.substr(9));
     }
 
-    // 2. Spargem coloanele prin virgulă (respectând ghilimelele)
+    // --- 2. Spargerea în coloane (protejând parantezele și ghilimelele) ---
     std::vector<std::wstring> tokens = splitIgnoringQuotes(section, L',');
 
-    for (auto& rawCol : tokens) {
+    for (const auto& rawCol : tokens) {
         std::wstring cleanCol = wstr_trim(rawCol);
         if (cleanCol.empty()) continue;
 
         QueryColumn col;
         std::wstring upperCol = to_upper(cleanCol);
 
-        // --- PASUL 4 REPARAT: Căutăm Alias (ignora parantezele) ---
+        // --- 3. Extragerea Alias-ului ---
         size_t asPos = upperCol.find(L" AS ");
 
         if (asPos != std::wstring::npos) {
+            // Cazul A: Explicit cu " AS " (ex: UPPER(nume) AS NumeMare)
             col.rawExpression = wstr_trim(cleanCol.substr(0, asPos));
             col.alias = stripQuotes(wstr_trim(cleanCol.substr(asPos + 4)));
         }
         else {
-            // Căutăm ultimul spațiu care NU este în interiorul parantezelor
+            // Cazul B: Implicit prin spațiu (ex: UPPER(nume) NumeMare)
+            // Căutăm ultimul spațiu care NU se află în interiorul unor paranteze
             size_t lastSpace = std::wstring::npos;
             int depth = 0;
+
             for (int i = (int)cleanCol.size() - 1; i >= 0; --i) {
                 if (cleanCol[i] == L')') depth++;
                 else if (cleanCol[i] == L'(') depth--;
-                else if (depth == 0 && (cleanCol[i] == L' ' || cleanCol[i] == L'\t')) {
+                else if (depth == 0 && iswspace(cleanCol[i])) { // iswspace prinde space, tab, etc.
                     lastSpace = i;
                     break;
                 }
@@ -612,7 +622,7 @@ bool SqlQueryParser::parseSelect(std::wstring section) {
                 std::wstring potentialExpr = wstr_trim(cleanCol.substr(0, lastSpace));
                 std::wstring potentialAlias = wstr_trim(cleanCol.substr(lastSpace + 1));
 
-                // Dacă avem ceva după spațiu și expresia din stânga are paranteze închise ok
+                // Ne asigurăm că expresia din stânga e completă (paranteze închise corect)
                 if (!potentialAlias.empty() && checkBrackets(potentialExpr)) {
                     col.rawExpression = potentialExpr;
                     col.alias = stripQuotes(potentialAlias);
@@ -622,38 +632,40 @@ bool SqlQueryParser::parseSelect(std::wstring section) {
                 }
             }
             else {
-                col.rawExpression = cleanCol;
+                col.rawExpression = cleanCol; // Niciun alias prezent
             }
         }
 
-        // 5. Validare și Detectare Tip
-        if (col.rawExpression.empty()) return setError(L"Expresie invalidă.");
+        // --- 4. Validarea expresiei ---
+        if (col.rawExpression.empty()) {
+            return setError(L"Expresie invalidă în clauza SELECT.");
+        }
 
-        // IMPORTANT: detectType() folosește col.rawExpression populat mai sus
+        // ⭐ 5. MAGIA NOUĂ: Generarea arborelui AST pentru evaluări complexe ⭐
+        col.astRoot = buildExpressionAST(col.rawExpression);
+
+        // --- 6. Compatibilitate Legacy: Setăm variabilele vechi ---
         col.detectType();
 
-        // --- PASUL NOU: Dacă e subquery, trebuie să-l parsăm recursiv ---
+        // --- 7. Compatibilitate Legacy: Parsăm Subquery-ul (dacă există) ---
         if (col.type == ColumnType::SUBQUERY) {
             std::wstring subSql = col.rawExpression;
 
-            // 1. Curățăm parantezele exterioare: (SELECT ...) -> SELECT ...
+            // Eliminăm parantezele de la marginile subquery-ului
+            if (subSql.front() == L'(') subSql.erase(0, 1);
+            if (subSql.back() == L')') subSql.pop_back();
             subSql = wstr_trim(subSql);
-            if (!subSql.empty() && subSql.front() == L'(') subSql.erase(0, 1);
-            if (!subSql.empty() && subSql.back() == L')') subSql.pop_back();
 
-            // 2. Creăm obiectul Query și îl parsăm
+            // Instanțiem și parsăm query-ul intern
             col.subSelect = std::make_shared<Query>();
-
-            // Folosim un SqlQueryParser nou pentru textul din paranteze
-            // ATENȚIE: Trebuie să ai un constructor care primește (wstring, Query&)
             SqlQueryParser subParser(subSql, *col.subSelect);
 
-            if (!subParser.parseSelect()) { // Sau subParser.parse() depinde cum e structura ta
+            if (!subParser.parseSelect()) {
                 return setError(L"Eroare la parsarea subquery-ului: " + subSql);
             }
-
-            //LOG_INFO(L"[DEBUG] Subquery detectat și parsat cu succes pentru coloana: " + col.alias);
         }
+
+        // Adăugăm coloana finalizată la structura query-ului
         query.columns.push_back(col);
     }
 
@@ -757,7 +769,7 @@ bool SqlQueryParser::parseFrom(std::wstring section) {
     return true;
 }
 */
-
+/*
 bool SqlQueryParser::parseFrom(std::wstring section) {
     std::wstring trimmedSection = wstr_trim(section);
     if (trimmedSection.empty()) return true;
@@ -795,6 +807,73 @@ bool SqlQueryParser::parseFrom(std::wstring section) {
     if (firstJoinPos != std::wstring::npos) {
         std::wstring joinSection = trimmedSection.substr(firstJoinPos);
         return parseJoinsRecursive(joinSection);
+    }
+
+    return true;
+}
+*/
+
+bool SqlQueryParser::parseFrom(std::wstring section) {
+    std::wstring trimmedSection = wstr_trim(section);
+    if (trimmedSection.empty()) return true;
+
+    // Spargem după virgulă dacă avem mai multe surse în FROM
+    std::vector<std::wstring> tableTokens = wexplodeSQL(trimmedSection, L',');
+
+    for (auto& token : tableTokens) {
+        std::wstring cleanToken = wstr_trim(token);
+        if (cleanToken.empty()) continue;
+
+        QueryTable qt;
+
+        // --- 1. CAZ SUBQUERY ÎN FROM: FROM (SELECT ...) AS alias ---
+        if (cleanToken.front() == L'(') {
+            size_t lastParen = cleanToken.find_last_of(L')');
+            if (lastParen == std::wstring::npos) {
+                return setError(L"Paranteză neînchisă pentru subquery în FROM.", cleanToken);
+            }
+
+            qt.isSubquery = true;
+            std::wstring subQueryStr = wstr_trim(cleanToken.substr(1, lastParen - 1));
+            qt.name = L"derived_table";
+
+            // Parsăm recursiv subquery-ul
+            qt.subSelect = std::make_shared<Query>();
+            SqlQueryParser subParser(subQueryStr, *qt.subSelect);
+            if (!subParser.parseSelect()) {
+                return setError(L"Eroare în subquery-ul din FROM: " + subParser.getLastError().message, subQueryStr);
+            }
+
+            // Extragem alias-ul obligatoriu de după paranteză (ex: ) AS t sau ) t)
+            std::wstring remaining = wstr_trim(cleanToken.substr(lastParen + 1));
+            if (remaining.empty()) {
+                return setError(L"Subquery-urile din clauza FROM trebuie să aibă un alias (ex: FROM (...) AS t).", cleanToken);
+            }
+
+            if (to_upper(remaining).substr(0, 3) == L"AS ") {
+                qt.alias = stripQuotes(wstr_trim(remaining.substr(3)));
+            }
+            else {
+                qt.alias = stripQuotes(remaining);
+            }
+        }
+        else {
+            // --- 2. CAZ TABEL NORMAL ---
+            if (!parseSingleTableSource(cleanToken, qt)) {
+                return setError(L"Sursă invalidă în FROM.", cleanToken);
+            }
+        }
+
+        // Atribuim în query
+        if (query.fromTable.name.empty() && !query.fromTable.isSubquery) {
+            query.fromTable = qt;
+        }
+        else {
+            JoinClause jc;
+            jc.type = JoinType::INNER;
+            jc.table = qt;
+            query.joins.push_back(jc);
+        }
     }
 
     return true;
@@ -1010,16 +1089,11 @@ std::shared_ptr<WhereClause> SqlQueryParser::parseRecursiveWhere(std::wstring se
 void SqlQueryParser::parseLeafCondition(std::shared_ptr<WhereClause> node, std::wstring condition) {
     condition = wstr_trim(condition);
 
-    // Lista operatorilor, ordonați după lungime descrescător 
-    // (ca să nu găsească '<' în loc de '<=')
-
-    //std::vector<std::wstring> operators = { L"!=", L"<=", L">=", L"<>", L"=", L"<", L">", L"LIKE", L"IN", L"BETWEEN" };
     std::vector<std::wstring> operators = { L"NOT LIKE", L"NOT IN", L"!=", L"<=", L">=", L"<>", L"=", L"<", L">", L"LIKE", L"IN", L"BETWEEN" };
 
     size_t opPos = std::wstring::npos;
     std::wstring foundOp;
 
-    // Căutăm operatorul în șir, ignorând ce e în paranteze (pentru TYPE(ZI) = 'N')
     int bracketLevel = 0;
     for (size_t i = 0; i < condition.size(); ++i) {
         if (condition[i] == L'(') bracketLevel++;
@@ -1027,10 +1101,8 @@ void SqlQueryParser::parseLeafCondition(std::shared_ptr<WhereClause> node, std::
 
         if (bracketLevel == 0) {
             for (const auto& op : operators) {
-                // Verificăm dacă subșirul curent corespunde unui operator
                 std::wstring sub = to_upper(condition.substr(i, op.size()));
                 if (sub == op) {
-                    // Verificăm dacă e operator cuvânt (LIKE, IN) să aibă spații în jur
                     if (iswalpha(op[0])) {
                         if (i > 0 && !iswspace(condition[i - 1])) continue;
                         if (i + op.size() < condition.size() && !iswspace(condition[i + op.size()])) continue;
@@ -1046,22 +1118,31 @@ void SqlQueryParser::parseLeafCondition(std::shared_ptr<WhereClause> node, std::
     }
 
     if (opPos != std::wstring::npos) {
-        node->leftOperand.rawExpression = wstr_trim(condition.substr(0, opPos));
-        node->leftOperand.detectType(); // Aici va detecta dacă e FIELD sau EXPRESSION (ex: TYPE)
+        std::wstring leftExpr = wstr_trim(condition.substr(0, opPos));
+        std::wstring rightExpr = wstr_trim(condition.substr(opPos + foundOp.size()));
 
         node->oper = foundOp;
 
-        node->rightOperand.rawExpression = wstr_trim(condition.substr(opPos + foundOp.size()));
-        node->rightOperand.detectType(); // Aici va detecta dacă e LITERAL sau poate un SUBQUERY
+        // ⭐ Folosim proprietățile existente din QueryColumn (leftOperand și rightOperand) ⭐
+        node->leftOperand.rawExpression = leftExpr;
+        node->leftOperand.detectType();
+        node->leftOperand.astRoot = buildExpressionAST(leftExpr); // Aici se construiește AST-ul pentru stânga
+
+        node->rightOperand.rawExpression = rightExpr;
+        node->rightOperand.detectType();
+        node->rightOperand.astRoot = buildExpressionAST(rightExpr); // Aici se construiește AST-ul pentru dreapta (inclusiv SUBQUERY)
     }
     else {
-        // Caz special: IS NULL / IS NOT NULL (operatori unari)
         std::wstring upperCond = to_upper(condition);
         size_t isPos = upperCond.find(L" IS ");
         if (isPos != std::wstring::npos) {
-            node->leftOperand.rawExpression = wstr_trim(condition.substr(0, isPos));
+            std::wstring leftExpr = wstr_trim(condition.substr(0, isPos));
+
+            node->leftOperand.rawExpression = leftExpr;
             node->leftOperand.detectType();
-            node->oper = wstr_trim(condition.substr(isPos)); // "IS NULL"
+            node->leftOperand.astRoot = buildExpressionAST(leftExpr);
+
+            node->oper = wstr_trim(condition.substr(isPos));
             node->isUnary = true;
         }
     }
@@ -1168,31 +1249,41 @@ void Query::printColumns() {
         // Convertim enum-ul în string pentru citibilitate
         std::wstring typeStr;
         switch (col.type) {
-        case ColumnType::RAW_FIELD:  typeStr = L"FIELD     "; break;
-        case ColumnType::LITERAL:    typeStr = L"LITERAL   "; break;
-        case ColumnType::EXPRESSION: typeStr = L"EXPRESSION"; break;
-        case ColumnType::SUBQUERY:   typeStr = L"SUBQUERY  "; break;
-        case ColumnType::WILDCARD:   typeStr = L"WILDCARD  "; break;
-        default:                     typeStr = L"UNKNOWN   "; break;
+        case ColumnType::RAW_FIELD:       typeStr = L"FIELD     "; break;
+        case ColumnType::LITERAL:         typeStr = L"LITERAL   "; break;
+        case ColumnType::EXPRESSION:      typeStr = L"EXPRESSION"; break;
+        case ColumnType::SCALAR_FUNCTION: typeStr = L"SCALAR_F  "; break; // Adăugat pentru funcții (ex: TYPE, UPPER)
+        case ColumnType::AGGREGATE:       typeStr = L"AGGREGATE "; break; // Adăugat pentru SUM, COUNT
+        case ColumnType::SUBQUERY:        typeStr = L"SUBQUERY  "; break;
+        case ColumnType::WILDCARD:        typeStr = L"WILDCARD  "; break;
+        default:                          typeStr = L"UNKNOWN   "; break;
         }
 
         std::wstring aliasStr = col.alias.empty() ? L"(none)" : col.alias;
 
-        // Construim linia de log
-        std::wstring line = std::to_wstring(i) + L"     | " +
+        // Construim linia de log principală
+        // Ajustare minoră pentru formatare la index >= 10
+        std::wstring spaceAfterIndex = (i < 10) ? L"      | " : L"     | ";
+        std::wstring line = std::to_wstring(i) + spaceAfterIndex +
             typeStr + L" | " +
             aliasStr + (aliasStr.length() < 14 ? std::wstring(14 - aliasStr.length(), L' ') : L"") + L" | " +
             col.rawExpression;
 
-        // Folosim culori diferite pentru tipuri diferite (dacă vrei să fii fancy)
+        // Folosim culori diferite pentru tipuri diferite
         if (col.type == ColumnType::SUBQUERY) {
             ConsoleManager::getInstance().writeRaw(line + L"\n", 11); // Cyan pentru subqueries
         }
-        else if (col.type == ColumnType::EXPRESSION) {
+        else if (col.type == ColumnType::EXPRESSION || col.type == ColumnType::SCALAR_FUNCTION) {
             ConsoleManager::getInstance().writeRaw(line + L"\n", 14); // Galben pentru funcții/calcule
         }
         else {
             LOG(line); // Default (Alb)
+        }
+
+        // --- ADAUGĂRI AST: Desenăm arborele dacă expresia a fost parsată ---
+        if (col.astRoot != nullptr) {
+            // Lăsăm un mic spațiu (prefix) pentru a se alinia frumos vizual sub linia de tabel
+            printExprAST(col.astRoot, L"          ", true);
         }
     }
     LOG(L"------------------------------------------------------------");
@@ -1554,4 +1645,150 @@ bool SqlQueryParser::parseUpdate() {
 
     query.type = QueryType::UPDATE;
     return !query.updateSets.empty();
+}
+// O funcție ajutătoare în SqlQueryParser pentru a construi AST-ul unei expresii
+std::shared_ptr<ExprASTNode> SqlQueryParser::buildExpressionAST(std::wstring expr) {
+    expr = wstr_trim(expr);
+    if (expr.empty()) return nullptr;
+
+    std::wstring upperExpr = to_upper(expr);
+
+    // 1. Verificare prioritară SUBQUERY: Dacă e încadrat în paranteze și începe cu SELECT
+    if (upperExpr.front() == L'(' && upperExpr.back() == L')') {
+        std::wstring innerTrimmed = wstr_trim(expr.substr(1, expr.size() - 2));
+        if (to_upper(innerTrimmed).find(L"SELECT") == 0) {
+            auto node = std::make_shared<ExprASTNode>(ExprNodeType::SUBQUERY, L"SUBQUERY");
+            node->subQuery = std::make_shared<Query>();
+            
+
+            
+            // Asigură-te că innerTrimmed nu e gol înainte de parsare!
+            if (!innerTrimmed.empty()) {
+                SqlQueryParser subParser(innerTrimmed, *node->subQuery);
+            }
+            return node;
+        }
+    }
+
+    // 2. Curățăm parantezele exterioare doar dacă încadrează o expresie normală (ex: (5 + 3))
+    if (isFullyEnclosed(expr)) {
+        expr = wstr_trim(expr.substr(1, expr.size() - 2));
+        upperExpr = to_upper(expr);
+    }
+
+    // 3. Căutăm operatori binari (+, -, *, /) în AFARA parantezelor
+    // Începem cu cei cu prioritate mică (+, -)
+    std::vector<std::wstring> operators = { L"+", L"-", L"*", L"/" };
+
+    for (const auto& op : operators) {
+        int bracketLevel = 0;
+        bool inQuotes = false;
+
+        // Parcurgem invers pentru a asocia corect la stânga (ex: 5 - 3 - 1 devine (5 - 3) - 1)
+        for (int i = (int)expr.size() - 1; i >= 0; --i) {
+            if (expr[i] == L'\'') inQuotes = !inQuotes;
+            if (!inQuotes) {
+                if (expr[i] == L')') bracketLevel++;
+                else if (expr[i] == L'(') bracketLevel--;
+            }
+
+            if (bracketLevel == 0 && !inQuotes) {
+                // Dacă am găsit operatorul
+                if (expr.compare(i, op.length(), op) == 0) {
+                    auto node = std::make_shared<ExprASTNode>(ExprNodeType::BINARY_OP, op);
+
+                    std::wstring leftPart = expr.substr(0, i);
+                    std::wstring rightPart = expr.substr(i + op.length());
+
+                    // Parsăm recursiv stânga și dreapta
+                    node->children.push_back(buildExpressionAST(leftPart));
+                    node->children.push_back(buildExpressionAST(rightPart));
+
+                    return node;
+                }
+            }
+        }
+    }
+
+    // 4. Verificăm dacă e FUNCȚIE (ex: TYPE(varsta), UPPER(nume))
+    size_t firstParen = expr.find(L'(');
+    if (firstParen != std::wstring::npos && expr.back() == L')') {
+        std::wstring funcName = wstr_trim(expr.substr(0, firstParen));
+        // Dacă numele funcției e valid (alfanumeric)
+        if (!funcName.empty() && iswalpha(funcName[0])) {
+            auto node = std::make_shared<ExprASTNode>(ExprNodeType::FUNCTION_CALL, to_upper(funcName));
+
+            std::wstring argsStr = wstr_trim(expr.substr(firstParen + 1, expr.size() - firstParen - 2));
+            std::vector<std::wstring> args = splitIgnoringQuotes(argsStr, L',');
+            for (const auto& arg : args) {
+                node->children.push_back(buildExpressionAST(arg));
+            }
+            return node;
+        }
+    }
+
+    // Funcție lambda pentru a detecta dacă un șir este numeric
+    auto isNumeric = [](const std::wstring& s) {
+        if (s.empty()) return false;
+        size_t start = (s[0] == L'-' || s[0] == L'+') ? 1 : 0;
+        if (start == s.length()) return false;
+        bool hasDecimal = false;
+        for (size_t i = start; i < s.length(); ++i) {
+            if (s[i] == L'.') {
+                if (hasDecimal) return false;
+                hasDecimal = true;
+            }
+            else if (!std::iswdigit(s[i])) {
+                return false;
+            }
+        }
+        return true;
+    };
+
+    // 5. Dacă nu e niciuna, e LITERAL sau COLUMN_REF
+    if ((expr.front() == L'\'' && expr.back() == L'\'') || isNumeric(expr)) {
+        return std::make_shared<ExprASTNode>(ExprNodeType::LITERAL, expr);
+    }
+
+    return std::make_shared<ExprASTNode>(ExprNodeType::COLUMN_REF, expr);
+}
+
+
+void Query::printExprAST(std::shared_ptr<ExprASTNode> node, std::wstring prefix, bool isLast) {
+    if (!node) return;
+
+    // 1. Traducem tipul nodului într-un text lizibil
+    std::wstring typeStr;
+    switch (node->type) {
+    case ExprNodeType::LITERAL:       typeStr = L"LITERAL"; break;
+    case ExprNodeType::COLUMN_REF:    typeStr = L"COLUMN"; break;
+    case ExprNodeType::FUNCTION_CALL: typeStr = L"FUNCTION"; break;
+    case ExprNodeType::BINARY_OP:     typeStr = L"OPERATOR"; break;
+    case ExprNodeType::SUBQUERY:      typeStr = L"SUBQUERY"; break;
+    default:                          typeStr = L"UNKNOWN"; break;
+    }
+
+    // 2. Alegem graficele pentru ramuri
+    std::wstring marker = isLast ? L"└── " : L"├── ";
+
+    // 3. Afișăm nodul curent
+    std::wstring nodeText = prefix + marker + L"[" + typeStr + L"] " + node->value;
+
+    // Dacă e subquery, putem pune un indicator
+    if (node->type == ExprNodeType::SUBQUERY) {
+        nodeText += L" (Complex SQL Expression)";
+    }
+
+    // Folosim o culoare diferită pentru a-l evidenția (opțional)
+    // Sau pur și simplu LOG_INFO
+    ConsoleManager::getInstance().writeRaw(nodeText + L"\n", FOREGROUND_GREEN | FOREGROUND_INTENSITY);
+
+    // 4. Pregătim prefixul pentru copiii nodului curent
+    std::wstring childPrefix = prefix + (isLast ? L"    " : L"│   ");
+
+    // 5. Apelăm recursiv pentru fiecare copil
+    for (size_t i = 0; i < node->children.size(); ++i) {
+        bool isLastChild = (i == node->children.size() - 1);
+        printExprAST(node->children[i], childPrefix, isLastChild);
+    }
 }

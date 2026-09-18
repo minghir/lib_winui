@@ -1,8 +1,14 @@
-﻿#pragma once
+﻿
+#ifndef SQLQUERYPARSER_H
+#define SQLQUERYPARSER_H
+
+#pragma once
+
 #include <string>
 #include <vector>
 #include <map>
 #include <memory>
+
 
 
 enum class QueryType {
@@ -56,6 +62,40 @@ enum class JoinType {
     FULL
 };
 
+
+
+enum class ExprNodeType {
+    LITERAL,         // Ex: 3, '1977', 15.5
+    COLUMN_REF,      // Ex: varsta, persoane.nume
+    FUNCTION_CALL,   // Ex: UPPER(...), TYPE(...)
+    BINARY_OP,       // Ex: +, -, *, /, =, AND
+    SUBQUERY         // Ex: (SELECT ...)
+};
+
+// Un nod din arborele de expresii
+class ExprASTNode {
+public:
+    ExprNodeType type;
+
+    // Valoarea diferă în funcție de tip:
+    // Pt BINARY_OP: "+", "-"
+    // Pt LITERAL: "3", "'1977'"
+    // Pt COLUMN_REF: "varsta"
+    // Pt FUNCTION_CALL: "UPPER"
+    std::wstring value;
+
+    // Copiii nodului (ex: stânga și dreapta pentru BINARY_OP, sau argumentele pentru FUNCTION_CALL)
+    std::vector<std::shared_ptr<ExprASTNode>> children;
+
+    // Dacă nodul este un SUBQUERY, aici stochezi arborele interogării interne
+    std::shared_ptr<class Query> subQuery = nullptr;
+
+    ExprASTNode(ExprNodeType t, std::wstring v = L"") : type(t), value(v) {}
+};
+
+
+
+/*
 class QueryColumn {
 public:
     ColumnType type = ColumnType::RAW_FIELD;
@@ -78,6 +118,34 @@ public:
     QueryColumn() {};//  : type(ColumnType::RAW_FIELD), subSelect(nullptr) {}
     ~QueryColumn() = default;
 
+    void detectType();
+};
+*/
+class QueryColumn {
+public:
+    // --- Câmpurile originale (necesare pentru vSqlEngine actual) ---
+    ColumnType type = ColumnType::UNKNOWN;
+    std::wstring rawExpression = L""; // Expresia brută
+    std::wstring alias = L"";         // AS "alias"
+
+    // Numele funcției de agregare (ex: L"COUNT", L"SUM")
+    std::wstring aggregateFunc ;
+
+    // Argumentul funcției (ex: L"*" sau L"SALARY")
+    std::wstring aggregateArg;
+
+    // Pointer către subquery (abordarea veche)
+    std::shared_ptr<class Query> subSelect = nullptr;
+
+    // --- Câmpul NOU pentru evaluarea complexă (AST) ---
+    // Aici vom stoca expresiile de tipul "3 + (SELECT...)"
+    std::shared_ptr<ExprASTNode> astRoot = nullptr;
+
+    // Constructor/Destructor
+    QueryColumn() = default;
+    ~QueryColumn() = default;
+
+    // Metoda veche care populează type, aggregateFunc, aggregateArg
     void detectType();
 };
 
@@ -205,6 +273,9 @@ public:
     int offset = 0;
 
     void printColumns();
+    // Funcție recursivă pentru afișarea unui nod AST
+    void printExprAST(std::shared_ptr<ExprASTNode> node, std::wstring prefix, bool isLast);
+
     void printJoins();
     void printWhere(std::shared_ptr<WhereClause> node, int level);
     void printWhere() { printWhere(whereRoot, 0); };
@@ -241,7 +312,10 @@ private:
     }
 
 public:
+    
     //SqlQueryParser() {}
+    SqlQueryParser() : query_str(L""), query(m_internalQuery) {}
+
     SqlQueryParser(std::wstring qry);
 
     SqlQueryParser(std::wstring qry, Query& targetQuery);
@@ -293,4 +367,8 @@ public:
     }
 
     size_t findOutsideParens(const std::wstring& haystack, const std::wstring& needle);
+
+    std::shared_ptr<ExprASTNode> buildExpressionAST(std::wstring expr);
+    
 };
+#endif

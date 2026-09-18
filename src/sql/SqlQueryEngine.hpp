@@ -22,6 +22,10 @@ class vSqlEngine {
 private:
     SqlQueryParser m_queryParser;
     std::vector<vConTable> m_sourceTables; // Tabelele de intrare
+    std::shared_ptr<Query> m_subQueryObj = nullptr;
+
+    std::map<void*, std::wstring> m_astSubqueryCache;
+
     vConTable resultTable;
     std::map<std::wstring, OperatorHandler> m_opHandlers;
     std::map<std::wstring, FunctionHandler> m_funcHandlers;
@@ -35,6 +39,15 @@ public:
     vSqlEngine(const std::vector<vConTable>& sources, SqlQueryParser& parser) : m_queryParser(parser), m_sourceTables(sources) {
         registerHandlers();
     }
+
+    // ⭐ NOU: Constructor direct cu obiectul Query (foarte util pentru subqueries)
+    vSqlEngine(const std::vector<vConTable>& sourceTables, std::shared_ptr<Query> queryObj)
+        : m_sourceTables(sourceTables), m_subQueryObj(queryObj) {
+        registerHandlers();
+    }
+
+    // ⭐ NOU: Metodă care execută direct query-ul intern fără să mai treacă prin string parsing
+    vConResult executeSubquery();
 
     // Execută query-ul și returnează un tabel nou (rezultatul)
     //vTable execute(const std::wstring& query);
@@ -59,8 +72,8 @@ private:
     vConTable performJoin(const vConTable& left, const vConTable& right, const JoinClause& join);
     void applyFilters(vConTable& workTable);
     //void evaluateExpressions(vConTable& workTable, const vConTable& sourceRef);
-    void evaluateExpressions(vConTable& workTable, const vConTable& sourceRef, const std::vector<QueryColumn>& projectedColumns);
-
+    //void evaluateExpressions(vConTable& workTable, const vConTable& sourceRef, const std::vector<QueryColumn>& projectedColumns);
+    void evaluateExpressions(const Query& query, vConTable& workTable, const vConTable& sourceRef, const std::vector<QueryColumn>& projectedColumns);
     std::vector<std::wstring> splitSqlArguments(const std::wstring& s);
     std::wstring resolveExpression(std::wstring expr, const std::vector<std::wstring>& row, const vConTable& table);
     //bool evaluateCondition(std::shared_ptr<WhereClause> node, const std::vector<std::wstring>& row, const vConTable& table);
@@ -87,6 +100,15 @@ private:
     std::wstring getValWithContext(std::wstring identifier,
         const std::vector<std::wstring>& row, const vConTable& table,
         const std::vector<std::wstring>& outerRow, const vConTable& outerTable);
+
+
+    // Helper care transformă 2.0000 în "2" și 2.5000 în "2.5"
+    std::wstring formatDouble(double val);
+
+    // Inima execuției AST-ului: parcurge arborele și calculează valoarea finală!
+    std::wstring evaluateASTNode(std::shared_ptr<ExprASTNode> node, const std::vector<std::wstring>& row, const vConTable& sourceRef);
+
+    
 };
 
 #endif

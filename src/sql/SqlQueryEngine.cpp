@@ -210,6 +210,7 @@ vConTable* vSqlEngine::findTableInUniverse(const std::wstring& nameOrAlias) {
 vConResult vSqlEngine::execute(const SqlQueryParser& parser) {
 
     const Query& q = parser.getQuery();
+    //const Query& q = getCurrentQuery();
 
     switch (q.type) {
     case QueryType::SELECT:
@@ -230,6 +231,7 @@ vConResult vSqlEngine::executeInsert(const SqlQueryParser& parser) {
 
     try {
         const Query& q = parser.getQuery();
+        //const Query& q = getCurrentQuery();
         if (m_sourceTables.empty())
             throw std::runtime_error("Tabelul tinta nu a putut fi incarcat.");
 
@@ -292,6 +294,7 @@ vConResult vSqlEngine::executeInsert(const SqlQueryParser& parser) {
 vConResult vSqlEngine::executeUpdate(const SqlQueryParser& parser) {
     vConResult result;
     const Query& q = parser.getQuery();
+    //const Query& q = getCurrentQuery();
     const vConTable& target = m_sourceTables[0]; // Tabela deja încărcată
 
     // Colectăm rândurile care trebuie modificate și valorile lor noi
@@ -325,6 +328,7 @@ vConResult vSqlEngine::executeDelete(const SqlQueryParser& parser) {
 
     try {
         const Query& q = parser.getQuery();
+        //const Query& q = getCurrentQuery();
         if (m_sourceTables.empty()) throw std::runtime_error("No target table.");
 
         const vConTable& target = m_sourceTables[0];
@@ -358,32 +362,39 @@ vConResult vSqlEngine::executeSelect(const SqlQueryParser& parser) {
 
     try {
         const Query& q = parser.getQuery();
-        if (m_sourceTables.empty()) throw std::runtime_error("No source tables available");
+        //const Query& q = getCurrentQuery();
 
-        // --- STEP 0: CONSTRUCȚIA UNIVERSULUI (JOIN) ---
-        // Începem cu primul tabel
-        vConTable combinedSource = m_sourceTables[0];
+        // Verificăm dacă avem un query de tip Virtual Table (fără clauză FROM, ex: SELECT 1+1)
+        bool isVirtualTable = q.fromTable.name.empty();
 
-        // Aplicăm JOIN-urile rând pe rând
-        for (size_t i = 0; i < q.joins.size(); ++i) {
-            const JoinClause& join = q.joins[i];
+        vConTable workTable;
 
-            // Căutăm tabelul din dreapta în universul nostru după alias/nume
-            vConTable* rightTable = findTableInUniverse(join.table.getEffectiveName());
-            if (!rightTable) {
-                throw std::runtime_error("Table not found in universe: " + wstr_to_str(join.table.getEffectiveName()));
-            }
-
-            // Executăm îmbinarea (Nested Loop)
-            combinedSource = performJoin(combinedSource, *rightTable, join);
+        if (isVirtualTable) {
+            workTable.tableName = L"DUAL";
+            // Adăugăm un rând gol fictiv pentru ca buclele de evaluare să aibă context de rulare
+            workTable.records.push_back({});
         }
+        else {
+            if (m_sourceTables.empty()) throw std::runtime_error("No source tables available");
 
-        // De acum înainte, tot motorul lucrează cu 'combinedSource' în loc de 'm_sourceTables[0]'
-        const vConTable& workTable = combinedSource;
+            // --- STEP 0: CONSTRUCȚIA UNIVERSULUI (JOIN) ---
+            workTable = m_sourceTables[0];
+
+            // Aplicăm JOIN-urile rând pe rând
+            for (size_t i = 0; i < q.joins.size(); ++i) {
+                const JoinClause& join = q.joins[i];
+
+                vConTable* rightTable = findTableInUniverse(join.table.getEffectiveName());
+                if (!rightTable) {
+                    throw std::runtime_error("Table not found in universe: " + wstr_to_str(join.table.getEffectiveName()));
+                }
+
+                workTable = performJoin(workTable, *rightTable, join);
+            }
+        }
 
         // --- STEP 1: Pregătirea coloanelor (Expandare SELECT *) ---
         std::vector<QueryColumn> projectedColumns = expandWildcards(q.columns, workTable);
-       
 
         // --- STEP 2: Filtrare (WHERE) ---
         std::vector<const std::vector<std::wstring>*> filteredRows;
@@ -395,8 +406,8 @@ vConResult vSqlEngine::executeSelect(const SqlQueryParser& parser) {
             }
         }
 
-        // --- STEP 3: Sortare (ORDER BY + partial_sort optimization) ---
-        if (!q.order_clauses.empty()) {
+        // --- STEP 3: Sortare (ORDER BY) ---
+        if (!q.order_clauses.empty() && !isVirtualTable) {
             applySorting(filteredRows, q, workTable);
         }
 
@@ -406,16 +417,19 @@ vConResult vSqlEngine::executeSelect(const SqlQueryParser& parser) {
 
         // Stabilim coloanele finale (Headerele)
         for (const auto& col : projectedColumns) {
-            
             finalTable.columns.push_back(col.alias.empty() ? col.rawExpression : col.alias);
-            // Mapăm tipul de date (C, N, D etc.)
 
-            int srcIdx = workTable.getColumnIndex(to_upper(col.rawExpression));
-            if (srcIdx != -1) {
-                finalTable.columnTypes.push_back(workTable.columnTypes[srcIdx]);
+            if (!isVirtualTable) {
+                int srcIdx = workTable.getColumnIndex(to_upper(col.rawExpression));
+                if (srcIdx != -1) {
+                    finalTable.columnTypes.push_back(workTable.columnTypes[srcIdx]);
+                }
+                else {
+                    finalTable.columnTypes.push_back(L"C"); // Default Character
+                }
             }
             else {
-                finalTable.columnTypes.push_back(L"C"); // Default Character
+                finalTable.columnTypes.push_back(L"C"); // Default pentru Virtual Table
             }
         }
 
@@ -424,9 +438,8 @@ vConResult vSqlEngine::executeSelect(const SqlQueryParser& parser) {
             finalTable.records.push_back(*rowPtr);
         }
 
-        // --- STEP 5: EVALUAREA EXPRESIILOR (AICI ESTE CHEIA) ---
-        // Această metodă va detecta singură dacă e AGREGAT (1 rând) sau NORMAL (N rânduri)
-        evaluateExpressions(finalTable, workTable, projectedColumns);
+        // --- STEP 5: EVALUAREA EXPRESIILOR (AST / Legacy) ---
+        evaluateExpressions(q,finalTable, workTable, projectedColumns);
 
         // --- STEP 6: LIMIT/OFFSET ---
         applyLimitOffset(finalTable.records, q.limit, q.offset);
@@ -435,12 +448,17 @@ vConResult vSqlEngine::executeSelect(const SqlQueryParser& parser) {
         result.rowsAffected = result.table.records.size();
         result.success = true;
 
-        //return result;
-
     }
     catch (const std::exception& e) {
         result.success = false;
-        result.message = L"Execution Error: " + str_to_wstr(e.what());
+        std::wstring errorMsg = L"Execution Error: " + str_to_wstr(e.what());
+
+        // ⭐ Afișăm eroarea direct în consola serverului ca să o vedem imediat! ⭐
+        LOG_ERROR(errorMsg);
+
+        result.message = errorMsg;
+        // Dacă structura ta vConResult folosește alt nume pentru eroare, le setăm pe ambele:
+        // result.errorMessage = errorMsg; 
     }
 
     auto end = std::chrono::high_resolution_clock::now();
@@ -816,16 +834,36 @@ void vSqlEngine::evaluateExpressions(vConTable& workTable, const vConTable& sour
     workTable.records = std::move(finalRecords);
 }
 */
+void vSqlEngine::evaluateExpressions(const Query& query, vConTable& workTable, const vConTable& sourceRef, const std::vector<QueryColumn>& projectedColumns) {
 
-void vSqlEngine::evaluateExpressions(vConTable& workTable, const vConTable& sourceRef, const std::vector<QueryColumn>& projectedColumns) {
-    const auto& query = m_queryParser.getQuery();
+    // --- HELPER ELEGANT: Alege automat evaluarea prin AST (dacă există) sau fallback legacy ---
+    auto evalCol = [&](const QueryColumn& c, const std::vector<std::wstring>& r) -> std::wstring {
+        if (c.astRoot != nullptr) {
+            return evaluateASTNode(c.astRoot, r, sourceRef);
+        }
+        return resolveExpression(c.rawExpression, r, sourceRef);
+    };
 
     // 1. Mod normal (Fără agregare și fără GROUP BY)
     if (query.group_clauses.empty() && !query.isAggregate()) {
+
+        // Cazul special: Virtual Table (ex: SELECT 1 + 2) - nu avem clauza FROM
+        if (workTable.records.empty() && query.fromTable.name.empty()) {
+            std::vector<std::wstring> singleRow; // un rând gol fictiv pentru a avea context
+            std::vector<std::wstring> processedRow;
+            for (const auto& col : projectedColumns) {
+                processedRow.push_back(evalCol(col, singleRow));
+            }
+            workTable.records.push_back(processedRow);
+            return;
+        }
+
+        // Cazul clasic: SELECT calcul FROM tabel
         for (auto& row : workTable.records) {
             std::vector<std::wstring> processedRow;
             for (const auto& col : projectedColumns) {
-                processedRow.push_back(resolveExpression(col.rawExpression, row, sourceRef));
+                // Folosim helper-ul care știe să proceseze AST-ul
+                processedRow.push_back(evalCol(col, row));
             }
             row = std::move(processedRow);
         }
@@ -838,7 +876,8 @@ void vSqlEngine::evaluateExpressions(vConTable& workTable, const vConTable& sour
         std::wstring groupKey = query.group_clauses.empty() ? L"GLOBAL" : L"";
         if (!query.group_clauses.empty()) {
             for (const auto& gc : query.group_clauses) {
-                groupKey += resolveExpression(gc.column.rawExpression, row, sourceRef) + L"|";
+                // Evaluăm coloana de GROUP BY folosind tot helper-ul nostru inteligent
+                groupKey += evalCol(gc.column, row) + L"|";
             }
         }
         groups[groupKey].push_back(row);
@@ -860,23 +899,19 @@ void vSqlEngine::evaluateExpressions(vConTable& workTable, const vConTable& sour
                 std::wstring funcUpper = to_upper(col.aggregateFunc);
                 auto it = m_aggHandlers.find(funcUpper);
 
-                // Folosim noul splitSqlArguments pentru a separa argumentele (ex: nume, ', ')
                 std::vector<std::wstring> args = splitSqlArguments(col.aggregateArg);
 
                 for (const auto& row : groupRows) {
                     std::wstring nextVal;
 
                     if (funcUpper == L"STRING_AGG") {
-                        // Rezolvăm coloana (primul argument)
+                        // Pentru argumente interne ale funcțiilor de agregare, păstrăm legacy fallback direct
                         std::wstring data = (args.size() > 0) ? resolveExpression(args[0], row, sourceRef) : L"";
-                        // Separatorul rămâne brut (al doilea argument), va fi curățat în handler
                         std::wstring sep = (args.size() > 1) ? args[1] : L"', '";
-
-                        // Împachetăm folosind un delimitator intern care nu e folosit în SQL
                         nextVal = data + L"|SEP|" + sep;
                     }
                     else {
-                        // Logică standard pentru SUM, AVG, COUNT, MIN, MAX
+                        // Idem, pentru SUM/COUNT fallback pe resolveExpression (sau poți parsa un AST on-the-fly aici pe viitor)
                         nextVal = (col.aggregateArg == L"*") ? L"1" : resolveExpression(col.aggregateArg, row, sourceRef);
                     }
 
@@ -889,10 +924,10 @@ void vSqlEngine::evaluateExpressions(vConTable& workTable, const vConTable& sour
                 if (funcUpper == L"AVG") {
                     size_t sep = aggVal.find(L':');
                     if (sep != std::wstring::npos) {
-                        std::string formula = std::string(aggVal.begin(), aggVal.end());
-                        std::replace(formula.begin(), formula.end(), ':', '/');
+                        double sum = std::stod(aggVal.substr(0, sep));
+                        long long count = std::stoll(aggVal.substr(sep + 1));
 
-                        double result = evaluate_formula_fp(formula);
+                        double result = (count > 0) ? (sum / count) : 0.0;
 
                         std::wstringstream ss;
                         ss << std::fixed << std::setprecision(4) << result;
@@ -906,7 +941,9 @@ void vSqlEngine::evaluateExpressions(vConTable& workTable, const vConTable& sour
                 resultRow[i] = aggVal;
             }
             else {
-                resultRow[i] = resolveExpression(col.rawExpression, groupRows[0], sourceRef);
+                // Dacă NU este o agregare, evaluăm valoarea pe baza primului rând din grup
+                // Aici apelăm funcția noastră helper care declanșează AST-ul
+                resultRow[i] = evalCol(col, groupRows[0]);
             }
         }
 
@@ -925,7 +962,6 @@ void vSqlEngine::evaluateExpressions(vConTable& workTable, const vConTable& sour
 
     workTable.records = std::move(finalRecords);
 }
-
 /*
 bool vSqlEngine::evaluateCondition(std::shared_ptr<WhereClause> node, const std::vector<std::wstring>& row, const vConTable& table) {
     if (!node) return true;
@@ -1005,12 +1041,43 @@ bool vSqlEngine::evaluateCondition(
             }
         }
     }
+    /*
     else {
         // --- LOGICA PENTRU LEAF ---
         // Aici e cheia: resolveExpression trebuie să încerce să rezolve 
         // întâi în 'table', apoi în 'outerTable'
         std::wstring left = wstr_trim(resolveExpressionWithContext(node->leftOperand.rawExpression, row, table, outerRow, outerTable));
         std::wstring right = wstr_trim(resolveExpressionWithContext(node->rightOperand.rawExpression, row, table, outerRow, outerTable));
+
+        auto it = m_opHandlers.find(to_upper(node->oper));
+        if (it != m_opHandlers.end()) {
+            result = it->second(left, right);
+        }
+        else {
+            LOG_ERROR(L"Operator necunoscut: " + node->oper);
+            result = false;
+        }
+    }
+    */
+    else {
+        // --- LOGICA PENTRU LEAF BAZATĂ PE AST ---
+        std::wstring left, right;
+
+        // Partea Stângă: Evaluăm prin AST dacă există, altfel fallback pe context
+        if (node->leftOperand.astRoot) {
+            left = wstr_trim(evaluateASTNode(node->leftOperand.astRoot, row, table));
+        }
+        else {
+            left = wstr_trim(resolveExpressionWithContext(node->leftOperand.rawExpression, row, table, outerRow, outerTable));
+        }
+
+        // Partea Dreaptă: Evaluăm prin AST (Aici rulează subquery-ul nostru!)
+        if (node->rightOperand.astRoot) {
+            right = wstr_trim(evaluateASTNode(node->rightOperand.astRoot, row, table));
+        }
+        else {
+            right = wstr_trim(resolveExpressionWithContext(node->rightOperand.rawExpression, row, table, outerRow, outerTable));
+        }
 
         auto it = m_opHandlers.find(to_upper(node->oper));
         if (it != m_opHandlers.end()) {
@@ -1997,4 +2064,206 @@ std::wstring vSqlEngine::getValWithContext(std::wstring identifier,
     // 3. Dacă nu e coloană, înseamnă că e un literal sau o funcție
     // Folosim resolveExpression-ul standard (fără contextul de corelare)
     return resolveExpression(identifier, row, table);
+}
+
+
+std::wstring vSqlEngine::formatDouble(double val) {
+    std::wstringstream ss;
+    ss << std::fixed << std::setprecision(4) << val;
+    std::wstring s = ss.str();
+    // Scoatem zero-urile inutile de la coadă
+    s.erase(s.find_last_not_of(L'0') + 1, std::wstring::npos);
+    // Dacă a rămas punctul zecimal singur, îl scoatem și pe el
+    if (!s.empty() && s.back() == L'.') s.pop_back();
+    return s;
+}
+
+
+std::wstring vSqlEngine::evaluateASTNode(std::shared_ptr<ExprASTNode> node, const std::vector<std::wstring>& row, const vConTable& sourceRef) {
+    if (!node) return L"";
+
+    switch (node->type) {
+        // --- 1. CONSTANTE (1, 2, 'TEXT') ---
+    case ExprNodeType::LITERAL: {
+        std::wstring val = node->value;
+        // Curățăm ghilimelele pentru string-uri ('1977' -> 1977)
+        if (val.size() >= 2 && val.front() == L'\'' && val.back() == L'\'') {
+            return val.substr(1, val.size() - 2);
+        }
+        return val;
+    }
+
+                              // --- 2. CÂMPURI DIN TABEL (ex: varsta, nume) ---
+    case ExprNodeType::COLUMN_REF: {
+        std::wstring colUpper = to_upper(node->value);
+        // Căutăm a câta coloană este în definirea tabelului
+        for (size_t i = 0; i < sourceRef.columns.size(); ++i) {
+            if (to_upper(sourceRef.columns[i]) == colUpper) {
+                return (i < row.size()) ? row[i] : L"";
+            }
+        }
+        return L""; // Dacă e Virtual Table (Dual), n-avem coloane, returnează gol
+    }
+
+                                 // --- 3. MATEMATICĂ ȘI LOGICĂ (+, -, *, /) ---
+    case ExprNodeType::BINARY_OP: {
+        // MAGIC: RECURSIVITATE! Evaluăm stânga și dreapta înainte!
+        std::wstring leftStr = evaluateASTNode(node->children[0], row, sourceRef);
+        std::wstring rightStr = evaluateASTNode(node->children[1], row, sourceRef);
+
+        if (node->value == L"+" || node->value == L"-" || node->value == L"*" || node->value == L"/") {
+            // Convertim string-urile în numere (dacă sunt goale, punem 0)
+            double leftNum = leftStr.empty() ? 0.0 : std::stod(leftStr);
+            double rightNum = rightStr.empty() ? 0.0 : std::stod(rightStr);
+            double res = 0.0;
+
+            if (node->value == L"+") res = leftNum + rightNum;
+            else if (node->value == L"-") res = leftNum - rightNum;
+            else if (node->value == L"*") res = leftNum * rightNum;
+            else if (node->value == L"/") res = (rightNum != 0.0) ? (leftNum / rightNum) : 0.0;
+
+            return formatDouble(res);
+        }
+        return L"";
+    }
+
+                                // --- 4. FUNCȚII (ex: UPPER) ---
+    case ExprNodeType::FUNCTION_CALL: {
+        std::wstring funcName = node->value;
+
+        if (funcName == L"UPPER" && !node->children.empty()) {
+            std::wstring argVal = evaluateASTNode(node->children[0], row, sourceRef);
+            return to_upper(argVal);
+        }
+        // AICI VOM ADAUGA "TYPE" MAI TÂRZIU
+        return L"";
+    }
+
+                                    // --- 5. SUBQUERIES ---
+    // --- 5. SUBQUERY MIRACOL: Executăm un sub-select la runtime! ---
+    case ExprNodeType::SUBQUERY: {
+        if (!node->subQuery) {
+            LOG_ERROR(L"Eroare: node->subQuery este null!");
+            return L"0";
+        }
+
+        // --- 1. MEMOIZATION: Verificăm dacă l-am calculat deja ---
+        auto it = m_astSubqueryCache.find(node.get());
+        if (it != m_astSubqueryCache.end()) {
+            // L-am găsit! Returnăm instant valoarea, zero procesare!
+            return it->second;
+        }
+
+        // --- 2. EXECUȚIA (ajungem aici O SINGURĂ DATĂ per subquery) ---
+        vSqlEngine subEngine(this->m_sourceTables, node->subQuery);
+        vConResult subRes = subEngine.executeSubquery();
+
+        std::wstring finalVal = L"0";
+        if (subRes.success && !subRes.table.records.empty()) {
+            if (!subRes.table.records[0].empty()) {
+                finalVal = subRes.table.records[0][0];
+                LOG_INFO(L"SUBQUERY CALCULAT NOU: " + finalVal);
+            }
+        }
+        else {
+            LOG_ERROR(L"Eroare executie subquery: " + subRes.message);
+        }
+
+        // --- 3. SALVĂM ÎN CACHE PENTRU URMĂTOARELE RÂNDURI ---
+        m_astSubqueryCache[node.get()] = finalVal;
+
+        return finalVal;
+    }
+    }
+    return L"";
+}
+
+
+vConResult vSqlEngine::executeSubquery() {
+    vConResult result;
+    auto start = std::chrono::high_resolution_clock::now();
+
+    try {
+        if (!m_subQueryObj) {
+            throw std::runtime_error("No subquery object provided");
+        }
+
+        const Query& q = *m_subQueryObj;
+        bool isVirtualTable = q.fromTable.name.empty();
+
+        vConTable workTable;
+
+        if (isVirtualTable) {
+            workTable.tableName = L"DUAL_SUB";
+            workTable.records.push_back({}); // Rând gol pentru context scalar
+        }
+        else {
+            if (m_sourceTables.empty()) throw std::runtime_error("No source tables available for subquery");
+
+            // Construcția universului / join-uri pentru subquery
+            vConTable* targetTable = findTableInUniverse(q.fromTable.getEffectiveName());
+            if (!targetTable) {
+                throw std::runtime_error("Tabelul pentru subquery nu a fost gasit: " + wstr_to_str(q.fromTable.getEffectiveName()));
+            }
+            workTable = *targetTable; // <--- CORECT: Acum targetează 'persoane', nu 'departamente'
+
+            for (size_t i = 0; i < q.joins.size(); ++i) {
+                const JoinClause& join = q.joins[i];
+                vConTable* rightTable = findTableInUniverse(join.table.getEffectiveName());
+                if (!rightTable) {
+                    throw std::runtime_error("Subquery Table not found in universe: " + wstr_to_str(join.table.getEffectiveName()));
+                }
+                workTable = performJoin(workTable, *rightTable, join);
+            }
+        }
+
+        // --- Expansiune și Filtrare ---
+        std::vector<QueryColumn> projectedColumns = expandWildcards(q.columns, workTable);
+
+        std::vector<const std::vector<std::wstring>*> filteredRows;
+        filteredRows.reserve(workTable.records.size());
+
+        for (const auto& row : workTable.records) {
+            if (!q.whereRoot || evaluateCondition(q.whereRoot, row, workTable)) {
+                filteredRows.push_back(&row);
+            }
+        }
+
+        // --- Pregătire tabel final ---
+        vConTable finalTable;
+        finalTable.tableName = workTable.tableName;
+
+        for (const auto& col : projectedColumns) {
+            finalTable.columns.push_back(col.alias.empty() ? col.rawExpression : col.alias);
+            if (!isVirtualTable) {
+                int srcIdx = workTable.getColumnIndex(to_upper(col.rawExpression));
+                finalTable.columnTypes.push_back((srcIdx != -1) ? workTable.columnTypes[srcIdx] : L"C");
+            }
+            else {
+                finalTable.columnTypes.push_back(L"C");
+            }
+        }
+
+        for (const auto* rowPtr : filteredRows) {
+            finalTable.records.push_back(*rowPtr);
+        }
+
+        // Evaluarea expresiilor/agregărilor din subquery
+        evaluateExpressions(q,finalTable, workTable, projectedColumns);
+
+        // Limit / Offset
+        applyLimitOffset(finalTable.records, q.limit, q.offset);
+
+        result.table = std::move(finalTable);
+        result.rowsAffected = result.table.records.size();
+        result.success = true;
+    }
+    catch (const std::exception& e) {
+        result.success = false;
+        result.message = L"Subquery Execution Error: " + str_to_wstr(e.what());
+    }
+
+    auto end = std::chrono::high_resolution_clock::now();
+    result.executionTimeMs = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+    return result;
 }
