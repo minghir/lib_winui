@@ -1,0 +1,9 @@
+﻿  qdbf.cpp
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\winsock2.h(17,1): warning C4005: '_WINSOCKAPI_': macro redefinition
+D:\Programming\lib_winui\tests\qdbf\qdbf.cpp : message : see previous definition of '_WINSOCKAPI_'
+  Generating code
+  Previous IPDB and IOBJ mismatch, fall back to full compilation.
+D:\Programming\lib_winui\src\sql\SqlQueryEngine.cpp(226): warning C4715: 'vSqlEngine::execute': not all control paths return a value
+  All 5893 functions were compiled because no usable IPDB/IOBJ from previous compilation was found.
+  Finished generating code
+  qdbf.vcxproj -> D:\Programming\lib_winui\Release\qdbf.exe
